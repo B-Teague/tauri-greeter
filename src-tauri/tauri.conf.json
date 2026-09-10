@@ -4,18 +4,16 @@
   "version": "0.1.0",
   "identifier": "com.brian.cssdm",
   "build": {
-    "beforeDevCommand": "trunk serve",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "trunk build",
-    "frontendDist": "../dist"
+    "devUrl": "file://../index.html",
+    "frontendDist": ".."
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "title": "cssdm",
-        "width": 800,
-        "height": 600
+        "fullscreen": true,
+        "decorations": false
       }
     ],
     "security": {

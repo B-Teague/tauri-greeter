@@ -2,10 +2,88 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Tauri + Leptos App</title>
-    <link data-trunk rel="css" href="styles.css" />
-    <link data-trunk rel="copy-dir" href="public" />
-    <link data-trunk rel="rust" data-wasm-opt="z" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CSSDM - Login</title>
+    <link rel="stylesheet" href="styles.css" />
   </head>
-  <body></body>
+  <body class="login-page">
+    <div class="login-container">
+      <div class="login-box">
+        <!-- Header -->
+        <div class="login-header">
+          <h1>CSSDM</h1>
+          <p>Linux Display Manager</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="login-form">
+          <!-- User Selection -->
+          <div class="form-group">
+            <label for="username">Username</label>
+            <select id="username" name="username" required autofocus>
+              <option value="">Select user...</option>
+            </select>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              autocomplete="off"
+              placeholder="Enter password"
+            />
+          </div>
+
+          <!-- Session Selection -->
+          <div class="form-group">
+            <label for="session">Session</label>
+            <select id="session" name="session" required>
+              <option value="">Select session...</option>
+            </select>
+          </div>
+
+          <!-- Error Message -->
+          <div id="error-msg" class="error-msg" style="display: none;"></div>
+
+          <!-- Button Group -->
+          <div class="button-group">
+            <button type="submit" id="login-btn" class="btn btn-primary">
+              Login
+            </button>
+            <button type="button" id="power-menu-btn" class="btn btn-secondary">
+              ⏻ Power
+            </button>
+          </div>
+        </form>
+
+        <!-- Power Menu (Hidden) -->
+        <div id="power-menu" class="power-menu" style="display: none;">
+          <button type="button" class="power-action" data-action="suspend">
+            💤 Suspend
+          </button>
+          <button type="button" class="power-action" data-action="reboot">
+            🔄 Reboot
+          </button>
+          <button type="button" class="power-action" data-action="shutdown">
+            ⏹️ Shutdown
+          </button>
+          <button type="button" id="cancel-power-btn" class="power-action cancel">
+            Cancel
+          </button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+          <div class="spinner"></div>
+          <p>Logging in...</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="login.js"></script>
+  </body>
 </html>

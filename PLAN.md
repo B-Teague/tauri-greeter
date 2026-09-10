@@ -118,45 +118,46 @@
 
 ---
 
-## Phase 5: Frontend - Core UI
+## Phase 5: Frontend - Core UI ✅
 
 **Goal**: Responsive login form with dropdowns
 
-### 5.1 HTML Structure
-- [ ] `index.html`:
-  ```html
-  <div class="login-container">
-    <div class="login-form">
-      <!-- Username/password inputs -->
-      <!-- Session dropdown -->
-      <!-- Power menu -->
-      <!-- Login button -->
-    </div>
-    <!-- Theme selector (optional) -->
-  </div>
-  ```
+### 5.1 HTML Structure ✅
+- [x] `index.html`: clean semantic HTML
+  - Login header (title + subtitle)
+  - Login form with all fields
+  - Power menu (hidden by default)
+  - Loading overlay
+  - No frameworks (vanilla HTML/CSS/JS)
 
-### 5.2 Login Form Fields
-- [ ] Username input (autocomplete: off)
-- [ ] Password input
-- [ ] "Session" dropdown:
-  - Populated by `get_sessions()` on init
-  - Default to first Wayland, fallback to first X11
-  - Show indicator: 🌊 Wayland / 🖥️ X11
-- [ ] "Power" dropdown:
-  - Suspend, Shutdown, Reboot, Logout
-  - Icons/labels
-- [ ] Login button + loading state
+### 5.2 Login Form Fields ✅
+- [x] Username select dropdown (populated from `get_available_users`)
+- [x] Password input (type="password", no autocomplete)
+- [x] Session dropdown:
+  - Populated by `get_available_sessions()` on init
+  - Defaults to first Wayland, fallback to first X11
+  - Icons: 🌊 Wayland / 🖥️ X11
+- [x] Power button (toggles power menu)
+- [x] Power menu: Suspend, Reboot, Shutdown, Cancel
+- [x] Login button + loading overlay with spinner
 
-### 5.3 JavaScript Bridge
-- [ ] Tauri invoke calls:
-  ```js
-  await invoke('authenticate_user', { username, password })
-  await invoke('get_sessions', {})
-  await invoke('power_shutdown', {})
-  ```
-- [ ] Error handling: display auth errors below password field
-- [ ] Success: hide form, show "Logging in..." message briefly
+### 5.3 JavaScript Bridge ✅
+- [x] `login.js`: full Tauri integration
+  - `get_available_users()` → populate username select
+  - `get_available_sessions()` → populate session select
+  - `authenticate_user(username, password)` → login handler
+  - `set_session(session_name)` → session selection
+  - `power_shutdown/reboot/suspend()` → power actions
+  - Error display below password field
+  - Loading overlay on login/power action
+  - Auto-focus username field on load
+- [x] Tauri config updated: fullscreen + borderless window
+
+**Implementation** (ponytail: lazy):
+- Vanilla HTML/CSS/JS (no frameworks, minimal dependencies)
+- Direct Tauri invoke calls, no abstraction layer
+- CSS variables for theming (single default dark theme)
+- Responsive: mobile-first, 600px breakpoint
 
 ---
 
