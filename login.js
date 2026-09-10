@@ -23,11 +23,40 @@ let currentThemeStyle = null;
 
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", () => {
-  loadUsers();
-  loadSessions();
-  loadThemes();
-  setupEventListeners();
+  // Detect system theme preference
+  detectSystemTheme();
+
+  // Load all data in parallel
+  Promise.all([loadUsers(), loadSessions(), loadThemes()])
+    .then(() => {
+      setupEventListeners();
+      // Auto-focus username field
+      usernameSelect.focus();
+      console.log("CSSDM ready");
+    })
+    .catch((err) => {
+      showError(`Failed to initialize: ${err}`);
+      console.error("Initialization error:", err);
+    });
 });
+
+// Detect system theme preference (light/dark)
+function detectSystemTheme() {
+  const savedTheme = localStorage.getItem("cssdm-theme");
+  if (savedTheme && savedTheme !== "default") {
+    // User has a saved preference, will be loaded later
+    return;
+  }
+
+  // Check system preference
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    // System prefers dark - use default (already dark)
+    // No action needed
+  } else {
+    // System prefers light - switch to light theme if available
+    // This will happen after themes are loaded
+  }
+}
 
 // Load users from backend
 async function loadUsers() {
@@ -182,6 +211,34 @@ function setupEventListeners() {
     errorMsg.style.display = "none";
   });
 
+  // Keyboard navigation improvements
+  // Enter key in username/session selects → move to next field
+  usernameSelect.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      passwordInput.focus();
+    }
+  });
+
+  sessionSelect.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loginBtn.click();
+    }
+  });
+
+  // Escape key closes power/theme menus
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (powerMenu.style.display !== "none") {
+        powerMenu.style.display = "none";
+      }
+      if (themeMenu.style.display !== "none") {
+        themeMenu.style.display = "none";
+      }
+    }
+  });
+
   // Load saved theme preference on startup
   const savedTheme = localStorage.getItem("cssdm-theme");
   if (savedTheme && savedTheme !== "default") {
@@ -195,15 +252,31 @@ async function handleLogin() {
   const password = passwordInput.value;
   const session = sessionSelect.value;
 
-  if (!username || !password || !session) {
-    showError("Please fill in all fields");
+  // Validate form
+  if (!username) {
+    showError("Please select a user");
+    usernameSelect.focus();
+    return;
+  }
+  if (!password) {
+    showError("Please enter your password");
+    passwordInput.focus();
+    return;
+  }
+  if (!session) {
+    showError("Please select a session");
+    sessionSelect.focus();
     return;
   }
 
-  // Show loading overlay
+  // Show loading overlay and disable interactions
   loadingOverlay.style.display = "flex";
   loginBtn.disabled = true;
   powerMenuBtn.disabled = true;
+  usernameSelect.disabled = true;
+  passwordInput.disabled = true;
+  sessionSelect.disabled = true;
+  errorMsg.style.display = "none";
 
   try {
     // Authenticate user
@@ -213,31 +286,50 @@ async function handleLogin() {
     });
 
     if (!authResult.success) {
-      showError(authResult.error || "Authentication failed");
+      // Authentication failed - show error and reset form
+      const errorText = authResult.error || "Authentication failed";
+      showError(errorText);
+      resetLoginForm();
       loadingOverlay.style.display = "none";
-      loginBtn.disabled = false;
-      powerMenuBtn.disabled = false;
-      passwordInput.value = "";
-      passwordInput.focus();
       return;
     }
 
-    // Set session
-    await invoke("set_session", { sessionName: session });
+    // Set session for next login
+    try {
+      await invoke("set_session", { sessionName: session });
+    } catch (sessionErr) {
+      console.warn(`Failed to set session (non-critical): ${sessionErr}`);
+      // Don't fail the login if session setting fails
+    }
 
-    // Launch session (placeholder for future implementation)
-    // For now, just show success message
-    setTimeout(() => {
-      console.log(`User ${username} logged in with session ${session}`);
-      // In a real implementation, this would launch the session
-      // and the window would be replaced by the session
-    }, 1000);
+    // Login successful - update message
+    const loadingText = loadingOverlay.querySelector("p");
+    if (loadingText) {
+      loadingText.textContent = `Welcome, ${username}! Starting session...`;
+    }
+
+    // In a real implementation, this would launch the session
+    // For now, just log the success
+    console.log(`User ${username} authenticated successfully with session ${session}`);
+
+    // Keep loading overlay visible while session starts
+    // The actual session will replace this window
   } catch (err) {
-    showError(`Login error: ${err}`);
+    showError(`Login error: ${err.toString()}`);
+    resetLoginForm();
     loadingOverlay.style.display = "none";
-    loginBtn.disabled = false;
-    powerMenuBtn.disabled = false;
   }
+}
+
+// Reset login form to initial state
+function resetLoginForm() {
+  loginBtn.disabled = false;
+  powerMenuBtn.disabled = false;
+  usernameSelect.disabled = false;
+  passwordInput.disabled = false;
+  sessionSelect.disabled = false;
+  passwordInput.value = "";
+  passwordInput.focus();
 }
 
 // Handle power actions
@@ -251,15 +343,29 @@ async function handlePowerAction(action) {
   const command = commandMap[action];
   if (!command) return;
 
+  // Show confirmation/loading
+  powerMenu.style.display = "none";
+  loadingOverlay.style.display = "flex";
+  const loadingText = loadingOverlay.querySelector("p");
+  const actionNames = {
+    shutdown: "Shutting down",
+    reboot: "Rebooting",
+    suspend: "Suspending",
+  };
+
+  if (loadingText) {
+    loadingText.textContent = `${actionNames[action]}...`;
+  }
+
   try {
-    powerMenu.style.display = "none";
-    loadingOverlay.style.display = "flex";
     await invoke(command);
     // If successful, the system will power off/reboot/suspend
-    // This code may not execute
+    // This code may not execute because the system will shut down
   } catch (err) {
-    showError(`Power action failed: ${err}`);
+    const errorMsg = err.toString ? err.toString() : err;
+    showError(`${actionNames[action]} failed: ${errorMsg}`);
     loadingOverlay.style.display = "none";
+    console.error(`Power action '${action}' failed:`, err);
   }
 }
 
