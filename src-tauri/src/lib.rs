@@ -1,8 +1,10 @@
 mod auth;
 mod session;
+mod power;
 
 use auth::{authenticate, get_users, AuthResult, UserInfo};
 use session::{get_sessions, set_session_env, Session};
+use power::{execute_power, PowerAction};
 
 // Auth commands
 
@@ -28,6 +30,28 @@ fn set_session(session_name: String) -> Result<(), String> {
     set_session_env(&session_name).map_err(|e| e.to_string())
 }
 
+// Power commands
+
+#[tauri::command]
+fn power_shutdown() -> Result<(), String> {
+    execute_power(PowerAction::Shutdown).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn power_reboot() -> Result<(), String> {
+    execute_power(PowerAction::Reboot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn power_suspend() -> Result<(), String> {
+    execute_power(PowerAction::Suspend).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn power_logout() -> Result<(), String> {
+    execute_power(PowerAction::Logout).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -36,7 +60,11 @@ pub fn run() {
             authenticate_user,
             get_available_users,
             get_available_sessions,
-            set_session
+            set_session,
+            power_shutdown,
+            power_reboot,
+            power_suspend,
+            power_logout
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

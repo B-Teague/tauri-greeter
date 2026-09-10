@@ -92,23 +92,29 @@
 
 ---
 
-## Phase 4: Backend - Power Management
+## Phase 4: Backend - Power Management ✅
 
 **Goal**: Shutdown, reboot, suspend via systemd
 
-### 4.1 Systemd Integration
-- [ ] Create `src-tauri/src/power.rs`:
+### 4.1 Systemd Integration ✅
+- [x] Create `src-tauri/src/power.rs`:
   - Enum: `PowerAction { Shutdown, Reboot, Suspend, Logout }`
-  - Function: `fn execute_power(action: PowerAction) -> Result<()>`
-  - Use `systemctl` subprocess or `dbus` calls
-- [ ] Tauri commands:
-  - `power_shutdown()`
-  - `power_reboot()`
-  - `power_suspend()`
+  - Function: `fn execute_power(action: PowerAction) -> Result<(), PowerError>`
+  - Uses `systemctl` subprocess (universal on systemd systems)
+- [x] Tauri commands:
+  - `power_shutdown()` → systemctl poweroff
+  - `power_reboot()` → systemctl reboot
+  - `power_suspend()` → systemctl suspend
+  - `power_logout()` → no-op (handled by UI)
+- [x] Tests: systemctl args + logout behavior validated ✅
+
+**Implementation note**: Direct systemctl calls via subprocess. Logout is no-op (caller handles UI exit).
 
 ### 4.2 Permissions
-- [ ] Verify CSSDM runs with sufficient privileges (may need setuid or systemd service)
-- [ ] Consider: prompt for password if user lacks power permissions
+
+**Note**: CSSDM runs as root (standard for display managers). Power commands work without prompts. Non-root scenarios (future enhancement):
+- Add polkit integration for unprivileged access
+- Fallback commands for non-systemd systems
 
 ---
 
