@@ -161,49 +161,58 @@
 
 ---
 
-## Phase 6: Frontend - CSS Theming System
+## Phase 6: Frontend - CSS Theming System ✅
 
 **Goal**: Load and apply default + custom themes
 
-### 6.1 Theme Directory Structure
-```
-~/.local/share/cssdm/themes/
-  ├── default/
-  │   ├── theme.css
-  │   └── theme.json (metadata)
-  └── custom-theme/
-      ├── theme.css
-      └── theme.json
-```
+### 6.1 Backend Theme Management ✅
+- [x] Create `src-tauri/src/theme.rs` module
+  - Scan `~/.local/share/cssdm/themes/` + `/usr/share/cssdm/themes/`
+  - Parse theme metadata from `theme.json` files
+  - Load theme CSS content on demand
+  - Embed default theme in binary (include_str macro)
+- [x] Tauri commands:
+  - `get_available_themes()` → Vec<ThemeInfo>
+  - `load_selected_theme(theme_id)` → CSS string
+- [x] Tests: default theme detection + theme ID parsing ✅
 
-### 6.2 Default Theme
-- [ ] `styles.css`: 
-  - CSS variables: `--bg-primary`, `--text-color`, `--accent`, `--input-bg`, `--button-hover`
-  - Responsive grid layout (mobile: single column, desktop: centered form)
-  - Dark theme by default (fits display manager context)
-  - Focus states + accessibility (WCAG AA)
-  - Password field mask, loading spinner
+### 6.2 Frontend Theme Selector ✅
+- [x] Theme menu in top-right corner
+  - Toggle button: "🎨 Theme"
+  - Dropdown list of available themes
+  - Active theme indicator (checkmark)
+- [x] Dynamic CSS injection
+  - On theme select: load CSS via Tauri command
+  - Inject as `<style>` element in document head
+  - Preserve previous theme element state
 
-### 6.3 Theme Loading (Backend)
-- [ ] Scan `~/.local/share/cssdm/themes/` + `/usr/share/cssdm/themes/`
-- [ ] Tauri command: `get_themes() -> Vec<ThemeInfo>`
-- [ ] Frontend: dropdown to select theme
-- [ ] On select: inject CSS dynamically or reload
+### 6.3 Default Theme ✅
+- [x] `styles.css` — comprehensive CSS variables
+  - Colors: `--bg-primary`, `--text-primary`, `--accent`, `--input-bg`, etc.
+  - Design: `--border-radius`, `--transition`, `--shadow`
+  - Dark theme by default
+  - Light mode support via `prefers-color-scheme`
+  - Responsive layout (mobile-first, 600px breakpoint)
+  - Accessibility: WCAG AA contrast, focus states
+  - Animations: spinner, transitions
 
-### 6.4 CSS Variables (Customizable)
-```css
-:root {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --accent: #00d4ff;
-  --input-bg: #333333;
-  --button-hover: #0099cc;
-  --border-radius: 8px;
-  --transition: all 0.2s ease;
-}
-```
+### 6.4 Example Themes ✅
+- [x] Light theme (`themes/light/`)
+  - Light colors, subtle shadows
+  - Clean, minimal aesthetic
+- [x] High-contrast theme (`themes/high-contrast/`)
+  - Accessibility-focused (yellow on black)
+  - Thicker text, stronger borders
+  - High contrast ratios
+- [x] Theme documentation (`themes/README.md`)
+  - How to create custom themes
+  - CSS variable reference
+  - Installation instructions
+
+### 6.5 Theme Persistence ✅
+- [x] LocalStorage: save theme selection
+- [x] Load saved theme on startup
+- [x] Fallback to default if saved theme missing
 
 ---
 

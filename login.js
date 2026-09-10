@@ -14,11 +14,18 @@ const powerMenu = document.getElementById("power-menu");
 const cancelPowerBtn = document.getElementById("cancel-power-btn");
 const loadingOverlay = document.getElementById("loading-overlay");
 const powerActions = document.querySelectorAll(".power-action:not(.cancel)");
+const themeToggleBtn = document.getElementById("theme-toggle-btn");
+const themeMenu = document.getElementById("theme-menu");
+const themeList = document.getElementById("theme-list");
+
+// Current theme CSS element (injected dynamically)
+let currentThemeStyle = null;
 
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", () => {
   loadUsers();
   loadSessions();
+  loadThemes();
   setupEventListeners();
 });
 
@@ -65,12 +72,88 @@ async function loadSessions() {
   }
 }
 
+// Load themes from backend
+async function loadThemes() {
+  try {
+    const themes = await invoke("get_available_themes");
+    themeList.innerHTML = "";
+    themes.forEach((theme) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "theme-option";
+      btn.textContent = theme.name;
+      btn.dataset.themeId = theme.id;
+      if (theme.id === "default") {
+        btn.classList.add("active");
+      }
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        selectTheme(theme.id);
+      });
+      themeList.appendChild(btn);
+    });
+  } catch (err) {
+    console.error(`Failed to load themes: ${err}`);
+  }
+}
+
+// Select and apply a theme
+async function selectTheme(themeId) {
+  try {
+    const css = await invoke("load_selected_theme", { themeId });
+
+    // Remove existing dynamic theme style if any
+    if (currentThemeStyle) {
+      currentThemeStyle.remove();
+    }
+
+    // Create and inject new style
+    currentThemeStyle = document.createElement("style");
+    currentThemeStyle.id = `theme-${themeId}`;
+    currentThemeStyle.textContent = css;
+    document.head.appendChild(currentThemeStyle);
+
+    // Update active indicator
+    document.querySelectorAll(".theme-option").forEach((btn) => {
+      btn.classList.remove("active");
+      if (btn.dataset.themeId === themeId) {
+        btn.classList.add("active");
+      }
+    });
+
+    // Save preference to localStorage
+    localStorage.setItem("cssdm-theme", themeId);
+
+    // Close theme menu
+    themeMenu.style.display = "none";
+  } catch (err) {
+    console.error(`Failed to load theme: ${err}`);
+  }
+}
+
 // Setup event listeners
 function setupEventListeners() {
   // Form submission
   loginForm.addEventListener("submit", (e) => {
     e.preventDefault();
     handleLogin();
+  });
+
+  // Theme menu toggle
+  themeToggleBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    themeMenu.style.display =
+      themeMenu.style.display === "none" ? "flex" : "none";
+  });
+
+  // Close theme menu when clicking outside
+  document.addEventListener("click", (e) => {
+    if (
+      !e.target.closest(".theme-selector-container") &&
+      themeMenu.style.display !== "none"
+    ) {
+      themeMenu.style.display = "none";
+    }
   });
 
   // Power menu toggle
@@ -98,6 +181,12 @@ function setupEventListeners() {
   passwordInput.addEventListener("focus", () => {
     errorMsg.style.display = "none";
   });
+
+  // Load saved theme preference on startup
+  const savedTheme = localStorage.getItem("cssdm-theme");
+  if (savedTheme && savedTheme !== "default") {
+    selectTheme(savedTheme);
+  }
 }
 
 // Handle login
