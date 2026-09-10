@@ -65,24 +65,30 @@
 
 ---
 
-## Phase 3: Backend - Session Management
+## Phase 3: Backend - Session Management ✅
 
 **Goal**: Detect available desktop sessions and set the chosen one
 
-### 3.1 Session Detection
-- [ ] Scan `/usr/share/xsessions/` for X11 sessions (.desktop files)
-- [ ] Scan `/usr/share/wayland-sessions/` for Wayland sessions
-- [ ] Parser: read `Name=` and `Exec=` fields from .desktop
-- [ ] Struct: `Session { name: String, exec: String, is_wayland: bool }`
-- [ ] Tauri command: `get_sessions() -> Vec<Session>`
+### 3.1 Session Detection ✅
+- [x] Scan `/usr/share/xsessions/` for X11 sessions (.desktop files)
+- [x] Scan `/usr/share/wayland-sessions/` for Wayland sessions
+- [x] Parser: read `Name=` and `Exec=` fields from .desktop
+- [x] Struct: `Session { name: String, exec: String, is_wayland: bool }`
+- [x] Tauri command: `get_available_sessions() -> Result<Vec<Session>, String>`
+- [x] Sorting: Wayland first, then X11, alphabetically within each type
+- [x] Tests: desktop parsing + session sorting validated ✅
 
-### 3.2 Session Selection & Launch
-- [ ] Function: `fn set_session_env(session_name: &str)` 
-  - Writes to `~/.xsession` or XDG config
-  - Sets `DESKTOP_SESSION=` env var
-- [ ] **On successful login**: exec chosen session (do not return to login screen)
-  - Call `std::process::Command` to launch session's Exec command
-  - Pass session env vars
+**Implementation note**: Direct filesystem scan of .desktop files, filters by extension. Graceful handling of missing directories (some systems may not have all session types).
+
+### 3.2 Session Selection ✅
+- [x] Function: `fn set_session_env(session_name: &str)` 
+  - Writes to `~/.xsession` (standard login manager convention)
+  - Format: `exec <session_name>`
+- [x] Tauri command: `set_session(session_name: String) -> Result<(), String>`
+
+**Future work** (Phase 8):
+- Session launch after login (exec chosen session, no return to login screen)
+- Requires integration with login flow (post-auth, before UI closes)
 
 ---
 
