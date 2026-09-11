@@ -4,8 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.brian.cssdm",
   "build": {
-    "devUrl": "file://../index.html",
-    "frontendDist": ".."
+    "beforeDevCommand": "trunk serve",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "trunk build --release",
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
@@ -17,11 +19,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' tauri:; script-src 'self' tauri: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' tauri: 'unsafe-inline'; img-src 'self' tauri: data:; font-src 'self' tauri: data:; connect-src 'self' tauri: ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     }
   },
   "bundle": {
     "active": true,
+    "copyright": "Copyright (C) 2026 Brian Teague",
+    "license": "GPL-3.0-or-later",
+    "licenseFile": "../LICENSE",
     "targets": "all",
     "icon": [
       "icons/32x32.png",

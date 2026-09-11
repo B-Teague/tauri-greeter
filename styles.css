@@ -1,457 +1,252 @@
-/* CSSDM - CSS-based Display Manager
- * Default Dark Theme
- */
+/* Copyright (C) 2026 Brian Teague
+   SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* CSSDM — default theme.
+ * Everything themeable lives in the custom properties below; drop an override
+ * file at /etc/cssdm/theme.css to restyle the greeter without a rebuild. */
 
 :root {
-  /* Colors */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --accent: #00d4ff;
-  --accent-hover: #00a8cc;
-  --input-bg: #333333;
-  --input-border: #444444;
-  --input-focus: #00d4ff;
-  --error: #ff6b6b;
-  --button-hover: #0099cc;
+  --backdrop: linear-gradient(160deg, #6c3b7a 0%, #8b4a6b 45%, #c86b4a 75%, #e0894f 100%);
+  --fg: #ffffff;
+  --fg-muted: rgba(255, 255, 255, 0.72);
+  --field-bg: rgba(255, 255, 255, 0.9);
+  --field-fg: #1c1c1c;
+  --focus: rgba(255, 255, 255, 0.9);
+  --error: #ffd0cc;
+  --bar-bg: rgba(0, 0, 0, 0.35);
 
-  /* Spacing & Design */
-  --border-radius: 8px;
-  --transition: all 0.2s ease;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-hover: 0 8px 24px rgba(0, 212, 255, 0.2);
+  /* Sizes, so a theme can rescale the controls without restating their rules. */
+  --avatar-size: 5.5rem;
+  --field-height: 1.9rem;
+  --field-width: min(17rem, 60vw);
+  --field-radius: 3px;
+  --icon-size: 1.6rem;
 
-  /* Typography */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
-
-  /* Optimizations */
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
 }
 
-/* Light theme support */
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-primary: #f5f5f5;
-    --bg-secondary: #ffffff;
-    --text-primary: #1a1a1a;
-    --text-secondary: #666666;
-    --input-bg: #ffffff;
-    --input-border: #e0e0e0;
-    --input-focus: #0099cc;
-    --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --shadow-hover: 0 8px 24px rgba(0, 153, 204, 0.15);
-  }
-}
-
-/* Global Styles */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html,
 body {
-  width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
+  background: var(--backdrop);
+  background-size: cover;
+  color: var(--fg);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+/* One named grid. Every element below claims a grid-area and carries no
+ * positioning of its own, so a theme moves the whole greeter by rewriting
+ * grid-template-areas -- no other rule has to be undone first. */
+.screen {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto auto auto 1fr;
+  grid-template-areas:
+    "clock"
+    "identity"
+    "prompt"
+    "error"
+    "actions"
+    "status";
+  justify-items: center;
+  gap: 1.5rem;
+  padding: 8vh 1rem 1rem;
 }
 
-/* Login Page */
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* Clock */
 
-.login-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-}
-
-.login-box {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  background-color: var(--bg-secondary);
-  padding: 40px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  border: 1px solid rgba(0, 212, 255, 0.1);
-}
-
-/* Header */
-.login-header {
+.clock {
+  grid-area: clock;
   text-align: center;
-  margin-bottom: 30px;
 }
 
-.login-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 5px;
-  color: var(--accent);
-  text-shadow: 0 2px 8px rgba(0, 212, 255, 0.2);
+.time {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 300;
+  letter-spacing: 0.01em;
 }
 
-.login-header p {
-  font-size: 14px;
-  color: var(--text-secondary);
+.date {
+  font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+  font-weight: 400;
 }
 
-/* Form */
-.login-form {
+/* User */
+
+.identity {
+  grid-area: identity;
+  align-self: end;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.avatar {
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  fill: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
-.form-group label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.avatar .head,
+.avatar .body {
+  fill: #4a4a4a;
 }
 
-.form-group input,
-.form-group select {
-  padding: 12px 14px;
-  font-size: 14px;
-  background-color: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  transition: var(--transition);
-  font-family: inherit;
-}
-
-.form-group input::placeholder {
-  color: var(--text-secondary);
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: var(--input-focus);
-  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
-}
-
-select {
-  cursor: pointer;
+/* Styled to read as a label; still a real select when several users exist. */
+.user {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300d4ff' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 20px;
-  padding-right: 36px;
-}
-
-/* Error Message */
-.error-msg {
-  padding: 12px;
-  background-color: rgba(255, 107, 107, 0.1);
-  border: 1px solid var(--error);
-  border-radius: 6px;
-  color: var(--error);
-  font-size: 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
   text-align: center;
+  text-align-last: center;
+  text-shadow: inherit;
+  cursor: pointer;
 }
 
-/* Button Group */
-.button-group {
+.user option {
+  color: var(--field-fg);
+}
+
+/* Password */
+
+.prompt {
+  grid-area: prompt;
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.btn {
-  flex: 1;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: var(--transition);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: inherit;
-}
-
-.btn-primary {
-  background-color: var(--accent);
-  color: var(--bg-primary);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.btn-secondary {
-  background-color: transparent;
-  color: var(--accent);
-  border: 1px solid var(--accent);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: rgba(0, 212, 255, 0.1);
-  border-color: var(--accent-hover);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Power Menu */
-.power-menu {
-  position: absolute;
-  bottom: 40px;
-  right: 40px;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--input-border);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  display: flex !important;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  z-index: 100;
-  min-width: 180px;
-}
-
-.power-action {
-  padding: 10px 12px;
-  font-size: 14px;
-  background-color: transparent;
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-  transition: var(--transition);
-  font-family: inherit;
-}
-
-.power-action:hover {
-  background-color: rgba(0, 212, 255, 0.1);
-  color: var(--accent);
-}
-
-.power-action.cancel {
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid var(--input-border);
-}
-
-.power-action.cancel:hover {
-  color: var(--text-primary);
-  background-color: transparent;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex !important;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--border-radius);
-  gap: 16px;
-  z-index: 200;
+  gap: 0.4rem;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(0, 212, 255, 0.2);
-  border-top: 3px solid var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.password,
+.enter {
+  height: var(--field-height);
+  border: 1px solid transparent;
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  color: var(--field-fg);
+  font: inherit;
+  font-size: 0.85rem;
+  text-shadow: none;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.password {
+  width: var(--field-width);
+  padding: 0 0.6rem;
 }
 
-.loading-overlay p {
-  color: var(--text-primary);
-  font-size: 14px;
+.password::placeholder {
+  color: #6b6b6b;
 }
 
-/* Responsive Design */
-@media (max-width: 600px) {
-  .login-box {
-    padding: 30px 20px;
-  }
-
-  .login-header h1 {
-    font-size: 24px;
-  }
-
-  .power-menu {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    left: 20px;
-  }
-
-  .button-group {
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-  }
-}
-
-/* Theme Selector */
-.theme-selector-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 300;
-}
-
-.theme-toggle-btn {
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  background-color: rgba(0, 212, 255, 0.1);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 6px;
+.enter {
+  width: var(--field-height);
+  font-size: 1.1rem;
+  line-height: 1;
   cursor: pointer;
-  transition: var(--transition);
-  font-family: inherit;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.theme-toggle-btn:hover {
-  background-color: rgba(0, 212, 255, 0.2);
-  box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
-}
-
-.theme-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 8px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--input-border);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  display: flex !important;
-  flex-direction: column;
-  gap: 0;
-  min-width: 200px;
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 301;
-}
-
-.theme-menu-title {
-  padding: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--input-border);
-}
-
-.theme-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.theme-option {
-  padding: 10px 12px;
-  font-size: 13px;
-  background-color: transparent;
-  color: var(--text-primary);
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  transition: var(--transition);
-  font-family: inherit;
-}
-
-.theme-option:hover {
-  background-color: rgba(0, 212, 255, 0.1);
-  color: var(--accent);
-}
-
-.theme-option.active {
-  background-color: rgba(0, 212, 255, 0.2);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.theme-option.active::before {
-  content: "✓ ";
-  margin-right: 4px;
-}
-
-/* Accessibility */
-.btn:focus,
-input:focus,
-select:focus {
-  outline: 2px solid var(--accent);
+.password:focus-visible,
+.enter:focus-visible,
+.user:focus-visible,
+.action:focus-visible,
+.status select:focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-/* Remove default browser focus */
-*:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+.password:disabled,
+.enter:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  grid-area: error;
+  min-height: 1.2rem;
+  color: var(--error);
+  font-size: 0.85rem;
+}
+
+/* Power actions */
+
+.actions {
+  grid-area: actions;
+  /* Plain spacing, not layout glue: a theme can zero it without side effects. */
+  margin-top: clamp(1.5rem, 7vh, 5.5rem);
+  display: flex;
+  gap: 2.5rem;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.7rem;
+  text-shadow: inherit;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.action:hover {
+  opacity: 1;
+}
+
+.action svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* Status bar */
+
+.status {
+  grid-area: status;
+  align-self: end;
+  justify-self: start;
+  display: flex;
+  gap: 1rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--bar-bg);
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+}
+
+.status select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status option {
+  color: var(--field-fg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .action,
+  .enter {
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+  }
 }

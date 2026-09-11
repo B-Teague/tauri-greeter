@@ -1,3 +1,52 @@
-/dist/
+# Build output
 /target/
-/Cargo.lock
+/dist/
+
+# Local Claude Code state. A shared .claude/settings.json would be committed;
+# settings.local.json is this machine's own permission grants. It is already
+# covered by a global gitignore here, which does nothing for anyone who clones.
+.claude
+
+# Test output. LOCAL_TESTING.md pipes journal output to these, and the journal
+# names accounts, sessions and uids.
+*.log
+
+# Crash dumps. This process holds a password in memory while PAM checks it, so
+# a core file from cssdm is the single worst thing in this tree to publish.
+core
+core.*
+*.core
+vgcore.*
+
+# Credentials. Nothing in a display manager should need a key file, which is
+# exactly the situation where one gets committed without anyone noticing.
+.env
+.env.*
+*.pem
+*.key
+
+# Local copies of system files, for anyone debugging a PAM stack in here
+/etc/
+passwd.*
+shadow*
+*.pam
+
+# makepkg working directories and built packages. The PKGBUILD lives in a
+# subdirectory precisely because makepkg would otherwise create its own src/
+# here and clobber the real one.
+/packaging/arch/src/
+/packaging/arch/pkg/
+/packaging/arch/*.pkg.tar.*
+/packaging/arch/*.log
+
+# Editor and OS noise
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Deliberately NOT ignored:
+#   Cargo.lock          this is an application, not a library — the exact crate
+#                       versions that shipped are part of the security story
+#   .vscode/            only extensions.json and settings.json, both shared
+#   src-tauri/gen/      already handled by src-tauri/.gitignore

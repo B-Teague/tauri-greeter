@@ -1,64 +1,43 @@
-use serde::{Deserialize, Serialize};
+// Copyright (C) 2026 Brian Teague
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+use serde::Deserialize;
 use std::process::Command;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum PowerError {
-    #[error("Power command failed: {0}")]
-    CommandFailed(String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum PowerAction {
-    Shutdown,
-    Reboot,
+pub enum Action {
     Suspend,
-    Logout,
+    Reboot,
+    Shutdown,
 }
 
-impl PowerAction {
-    fn systemctl_arg(&self) -> &'static str {
+impl Action {
+    fn systemctl_verb(self) -> &'static str {
         match self {
-            PowerAction::Shutdown => "poweroff",
-            PowerAction::Reboot => "reboot",
-            PowerAction::Suspend => "suspend",
-            PowerAction::Logout => "exit", // Not a systemctl command
+            Action::Suspend => "suspend",
+            Action::Reboot => "reboot",
+            Action::Shutdown => "poweroff",
         }
     }
 }
 
-/// Execute a power action via systemd or session exit
-pub fn execute_power(action: PowerAction) -> Result<(), PowerError> {
-    match action {
-        PowerAction::Logout => {
-            // Logout: just exit the display manager (handled by caller)
-            Ok(())
-        }
-        _ => execute_systemctl(action),
-    }
-}
-
-fn execute_systemctl(action: PowerAction) -> Result<(), PowerError> {
-    // ponytail: uses systemctl which is universal on modern systemd systems
-    // Fallback to direct commands (shutdown, reboot, etc) possible for non-systemd
-    let arg = action.systemctl_arg();
-
+/// Hand the request to systemd-logind, which applies its own polkit rules.
+// ponytail: systemctl only. Non-systemd init needs its own branch here.
+pub fn run(action: Action) -> Result<(), String> {
+    let verb = action.systemctl_verb();
     let output = Command::new("systemctl")
-        .arg(arg)
+        .arg(verb)
         .output()
-        .map_err(|e| PowerError::CommandFailed(format!("Failed to execute systemctl: {}", e)))?;
+        .map_err(|e| format!("systemctl {verb}: {e}"))?;
 
     if output.status.success() {
         Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(PowerError::CommandFailed(format!(
-            "systemctl {} failed: {}",
-            arg, stderr
-        )))
+        Err(format!(
+            "systemctl {verb} failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
     }
 }
 
@@ -67,15 +46,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_power_action_args() {
-        assert_eq!(PowerAction::Shutdown.systemctl_arg(), "poweroff");
-        assert_eq!(PowerAction::Reboot.systemctl_arg(), "reboot");
-        assert_eq!(PowerAction::Suspend.systemctl_arg(), "suspend");
+    fn maps_actions_to_systemctl_verbs() {
+        assert_eq!(Action::Suspend.systemctl_verb(), "suspend");
+        assert_eq!(Action::Reboot.systemctl_verb(), "reboot");
+        assert_eq!(Action::Shutdown.systemctl_verb(), "poweroff");
     }
 
     #[test]
-    fn test_logout_is_noop() {
-        let result = execute_power(PowerAction::Logout);
-        assert!(result.is_ok());
+    fn deserializes_action_names_sent_by_the_ui() {
+        let action: Action = serde_json::from_str("\"shutdown\"").unwrap();
+        assert_eq!(action.systemctl_verb(), "poweroff");
     }
 }

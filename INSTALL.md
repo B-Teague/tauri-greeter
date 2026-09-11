@@ -5,37 +5,67 @@ Instructions for building and installing CSSDM as your display manager.
 ## Prerequisites
 
 - Linux system (x86_64 or ARM)
-- Rust 1.70+ ([install](https://rustup.rs/))
-- Standard build tools: `gcc`, `make`, `pkg-config`
-- Development libraries: `libssl-dev`, `libgtk-3-dev` (Debian/Ubuntu)
+- Rust 1.70+ ([install](https://rustup.rs/)) with the `wasm32-unknown-unknown`
+  target and [trunk](https://trunkrs.dev): `rustup target add
+  wasm32-unknown-unknown && cargo install trunk`
+- Standard build tools: `gcc`, `make`, `pkg-config`, `clang` (for PAM bindings)
+- Development libraries: `libpam0g-dev`, `libgtk-3-dev` (Debian/Ubuntu)
+- **An X server** at runtime (`xorg-server`, `xserver-xorg-core`,
+  `xorg-x11-server-Xorg`) — the daemon starts one on the VT to show the greeter
+  on. Already present on any distro that can run an X11 session; it does not
+  constrain the desktop the user logs into, which may be Wayland.
 
 ### Install Build Dependencies
 
 **Debian/Ubuntu:**
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential libssl-dev libgtk-3-dev \
+sudo apt-get install -y build-essential clang libpam0g-dev libgtk-3-dev \
   libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 ```
 
 **Fedora/RHEL:**
 ```bash
-sudo dnf install -y @development-tools openssl-devel gtk3-devel \
+sudo dnf install -y @development-tools clang pam-devel gtk3-devel \
   webkit2gtk4.1-devel glib2-devel
 ```
 
 **Arch Linux:**
 ```bash
-sudo pacman -S base-devel openssl gtk3 webkit2gtk glib2
+sudo pacman -S base-devel clang pam gtk3 webkit2gtk glib2
 ```
 
+## Install From the Arch Package
+
+The short path on Arch, CachyOS and derivatives:
+
+```bash
+make package                                  # make release, then makepkg
+sudo pacman -U packaging/arch/*.pkg.tar.zst
+```
+
+`packaging/arch/PKGBUILD` packages an **already-built** binary; it has no
+build step and no Rust makedepends. `make release` is what compiles, and
+`make package` runs the two in order. pacman resolves `xorg-server`,
+`webkit2gtk-4.1`, `gtk3`, `pam` and `systemd-libs` from the repos.
+
+The package installs the service but deliberately leaves it disabled: enabling
+it replaces your display manager, and that is not something an install should
+do behind your back. Post-install prints the two commands. Jump to step 3 for
+them, and to step 6 to test before committing.
+
+To uninstall: `sudo pacman -R cssdm` (its `pre_remove` disables the unit, but
+never stops it — stopping a display manager kills the session you are in).
+
 ## Installation Steps
+
+The manual route, for non-Arch systems or development.
 
 ### 1. Build CSSDM
 
 ```bash
 cd /path/to/CSSDM
-make release  # or: cargo build --release
+make release  # trunk build --release, then cargo build --release -p cssdm
 ```
 
 Binary will be at: `target/release/cssdm`
@@ -47,20 +77,28 @@ make install  # requires sudo
 ```
 
 This:
-- Installs binary to `/usr/local/bin/cssdm`
-- Creates `/usr/share/cssdm/themes/`
-- Copies included themes (light, high-contrast)
+- Installs the binary to `/usr/local/bin/cssdm`
+- Copies the example themes to `/usr/share/cssdm/themes/`
+
+The active theme is `/etc/cssdm/theme.css`, installed separately:
+
+```bash
+sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css
+```
 
 ### 3. Set as Default Display Manager
 
-```bash
-# Register CSSDM as display manager
-sudo update-alternatives --install /usr/bin/x-session-manager \
-  x-session-manager /usr/local/bin/cssdm 100
+`cssdm.service` carries `Alias=display-manager.service`, so enabling the unit
+is the whole registration. Disable the current display manager first, or the
+two will fight over tty1.
 
-# Verify it's selected
-sudo update-alternatives --config x-session-manager
+```bash
+sudo systemctl disable sddm   # or gdm, lightdm, …
+sudo systemctl enable cssdm
 ```
+
+(`update-alternatives` is a Debian mechanism for `x-session-manager`, not how a
+display manager is selected on systemd distributions.)
 
 ### 4. (Optional) Install systemd Service
 
@@ -80,25 +118,23 @@ This:
 ```bash
 make verify
 
-# Output should show:
-# Binary: ✓ /usr/local/bin/cssdm exists
-# Themes: ✓ Theme directory exists
-# Service: [depends on systemd install]
+# Reports the binary, the systemd unit and the installed theme
 ```
 
 ### 6. Test Before Reboot
 
-**Option A: Fullscreen test**
+**Option A: greeter only, in a window**
 ```bash
-# Starts CSSDM in fullscreen (Ctrl+C to exit)
-cssdm
+CSSDM_WINDOWED=1 cssdm --greeter   # login won't work: no daemon, no socket
 ```
 
-**Option B: Nested display (safer)**
+**Option B: the whole thing on a spare VT (recommended)**
 ```bash
-# Requires Xvfb or Wayland compositor
-DISPLAY=:1 cssdm &
+# From a console on a free VT (Ctrl+Alt+F3):
+sudo XDG_VTNR=3 XDG_SEAT=seat0 cssdm
 ```
+
+Your current session on tty1 stays up; Ctrl+Alt+F1 returns to it.
 
 ### 7. Reboot to Deploy
 
@@ -114,10 +150,8 @@ sudo reboot
 ### Remove Display Manager
 
 ```bash
-# Unset CSSDM as default
-sudo update-alternatives --remove x-session-manager /usr/local/bin/cssdm
-
-# Uninstall files
+sudo systemctl disable cssdm
+sudo systemctl enable sddm    # restore the one you had
 make uninstall
 ```
 
@@ -133,15 +167,12 @@ make systemd-uninstall
 
 If CSSDM crashes on startup, preventing login:
 
-1. **Boot to recovery mode:**
-   ```bash
-   # At GRUB menu: e to edit, add "single" or "recovery"
-   ```
+1. **Get a console:** the unit gives up after two crashes in 30s, so Ctrl+Alt+F2
+   reaches a login prompt.
 
 2. **Restore previous DM:**
    ```bash
-   sudo update-alternatives --config x-session-manager
-   # Select previous DM
+   sudo systemctl disable cssdm && sudo systemctl enable sddm
    sudo reboot
    ```
 
@@ -171,22 +202,17 @@ If CSSDM crashes on startup, preventing login:
   # Should have: auth, account, session lines
   ```
 
-- Test authentication manually:
-  ```bash
-  su testuser -c "echo $USER"  # Should print: testuser
-  ```
+- CSSDM authenticates against the `login` policy; if a distro's `login`
+  policy is unusual, change `PAM_SERVICE` in `src-tauri/src/auth.rs` and ship
+  an `/etc/pam.d/cssdm`
+- Watch the modules decide: `journalctl -u cssdm -f`
 
 ### Themes Not Loading
 
-- Check theme directory:
+- The greeter reads exactly one file, at startup:
   ```bash
-  ls -la /usr/share/cssdm/themes/
-  # Should show: light/, high-contrast/
-  ```
-
-- Verify theme.json format:
-  ```bash
-  cat /usr/share/cssdm/themes/light/theme.json | jq .
+  ls -l /etc/cssdm/theme.css   # must exist and be world-readable
+  sudo systemctl restart cssdm # re-read it
   ```
 
 ### X11 Sessions Not Showing
@@ -244,11 +270,8 @@ sudo systemctl stop cssdm
 ### Test Theme Loading
 
 ```bash
-# Check if themes are accessible
-ls -la /usr/share/cssdm/themes/
-
-# Verify theme metadata
-cat /usr/share/cssdm/themes/*/theme.json | jq .
+# The one file the greeter reads
+ls -l /etc/cssdm/theme.css
 ```
 
 ## Development Installation
@@ -259,8 +282,8 @@ For development/testing:
 # Build debug version
 make build
 
-# Run directly (no install needed)
-target/debug/cssdm
+# Run the greeter directly (no install needed)
+CSSDM_WINDOWED=1 target/debug/cssdm --greeter
 
 # Or with environment
 RUST_LOG=debug target/debug/cssdm
@@ -277,22 +300,6 @@ strip target/release/cssdm
 # Size should be ~5-10 MB
 ls -lh target/release/cssdm
 ```
-
-### Memory Usage
-
-CSSDM typically uses:
-- **Idle**: ~50 MB
-- **Loading data**: ~60-70 MB
-- **After login**: ~40 MB (freed)
-
-### Startup Time
-
-Typical startup timeline:
-- Binary load: ~100 ms
-- User enumeration: ~50 ms
-- Session detection: ~50 ms
-- Theme loading: ~30 ms
-- **Total**: < 300 ms
 
 ## Security Considerations
 
@@ -315,10 +322,10 @@ See [SECURITY.md](SECURITY.md) for detailed security analysis.
 
 After installation:
 
-1. **Customize theme:**
-   - Copy theme to `~/.local/share/cssdm/themes/my-theme/`
-   - Modify `theme.css` to your liking
-   - Select from theme menu at login
+1. **Customize the theme:**
+   - Start from `themes/midnight.css` or `themes/nebula.css`
+   - Install it as `/etc/cssdm/theme.css`
+   - Restart the greeter to apply
 
 2. **Configure PAM:**
    - Add 2FA via `/etc/pam.d/login`
@@ -336,7 +343,7 @@ If something goes wrong:
 
 ```bash
 # Revert to previous DM
-sudo update-alternatives --config x-session-manager
+sudo systemctl disable cssdm && sudo systemctl enable sddm
 
 # Uninstall completely
 make uninstall

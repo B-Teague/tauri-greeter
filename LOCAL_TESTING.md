@@ -4,47 +4,50 @@ Quick guide to test the production CSSDM binary on your Linux system.
 
 ## Release Binary
 
-**Location**: `target/release/cssdm`
-**Size**: ~15 MB (optimized release build)
+**Location**: `target/release/cssdm` (build it with `make release` — the UI
+bundle must be built by trunk before cargo embeds it)
 **Status**: Ready for testing
 
 ## Quick Test (Non-Destructive)
 
-### 1. Run in Windowed Mode
+### 1. Run the Greeter Alone
+
+The bare binary is the **daemon** — it takes over a VT and starts a desktop.
+Don't run that from inside your session. Run the greeter half instead:
 
 ```bash
-cd /home/brian/Code/tauri/CSSDM
-./target/release/cssdm
+cd /path/to/CSSDM
+CSSDM_WINDOWED=1 ./target/release/cssdm --greeter
 ```
 
-This starts CSSDM in fullscreen. **Ctrl+C to exit**.
+This opens an ordinary 1280x800 window. Everything works except login, which
+reports `connect /run/cssdm.sock` — the daemon is what owns that socket.
+**Ctrl+C to exit**.
 
 ### 2. Test Functionality
 
-- **Users**: Should load from `/etc/passwd`
-- **Sessions**: Should show X11 and Wayland sessions
-- **Themes**: Should show default, light, and high-contrast
-- **Keyboard**: Tab between fields, Enter submits, Escape closes menus
+- **Clock**: shows the current time and date in your locale
+- **Users**: loaded from `/etc/passwd` (uid >= 1000 with a real shell)
+- **Sessions**: bottom-left selector lists Wayland and X11 sessions
+- **Theme**: `/etc/cssdm/theme.css` is applied if present
+- **Keyboard**: password field is focused on start, Enter submits
 
 ### 3. Test Without Login
 
-- Try invalid credentials (should show error, keep form visible)
-- Try power menu (suspend/reboot/shutdown buttons)
-- Switch themes (should apply instantly)
+- Try a wrong password (should show a PAM error and clear the field)
+- Note that repeated failures count against `pam_faillock`, same as any login
+- Leave the power buttons alone unless you mean it — they act immediately
 
-**Note**: Don't actually login or reboot! Exit with Ctrl+C instead.
+**Note**: Don't actually reboot! Exit with Ctrl+C instead.
 
 ## Safe Installation (Testing Only)
 
 To test as the actual display manager:
 
-### Step 1: Backup Current Setup
+### Step 1: Note Your Current Setup
 
 ```bash
-# Check current display manager
-sudo update-alternatives --query x-session-manager
-
-# Note which DM is currently set (you'll restore this later)
+systemctl status display-manager   # the DM you'll restore later
 ```
 
 ### Step 2: Install Binary (Temporary)
@@ -61,56 +64,74 @@ chmod +x ~/.local/bin/cssdm
 ~/.local/bin/cssdm --version 2>/dev/null || echo "App started successfully"
 ```
 
-### Step 3: Test in Nested Display (Safer)
+### Step 3: Test the Greeter on a Bare X Server
+
+This is what the daemon does, minus the VT: an X server with the greeter as its
+only client, no window manager.
 
 ```bash
-# Install Xvfb if needed
-sudo apt install xvfb  # Debian/Ubuntu
-sudo dnf install xorg-x11-server-Xvfb  # Fedora
-
-# Run in virtual display
-DISPLAY=:99 Xvfb :99 -screen 0 1024x768 &
-DISPLAY=:99 ~/.local/bin/cssdm &
-sleep 2
-pkill -f "DISPLAY=:99"
+# From a terminal in your current session
+Xorg :9 -nolisten tcp -noreset &      # or Xephyr/Xvfb :9, if you have them
+DISPLAY=:9 ~/.local/bin/cssdm --greeter
 ```
 
-### Step 4: Test as System Display Manager (Read-Only)
+Login still fails here — no daemon, so no socket.
 
-If you want to test it as the actual login screen:
+### Step 4: Test the Whole Thing on a Spare VT
+
+This is the real test, and it does not touch your current display manager.
+Switch to a free VT (Ctrl+Alt+F3), log in at the console, then:
 
 ```bash
-# BACKUP YOUR CURRENT DM FIRST!
-sudo update-alternatives --install /usr/bin/x-session-manager \
-  x-session-manager /path/to/cssdm 100
+sudo XDG_VTNR=3 XDG_SEAT=seat0 ~/.local/bin/cssdm
+```
 
-# Verify it's set
-sudo update-alternatives --config x-session-manager
+The greeter takes over tty3. Log in and your desktop starts there; your
+existing session on tty1 is untouched, so Ctrl+Alt+F1 always gets you back.
+Ctrl+C on the console kills the daemon.
 
-# Now reboot to test
-# At login screen, CSSDM should appear
+### Step 5: Install as the System Display Manager
+
+Only after step 4 works.
+
+```bash
+sudo systemctl disable sddm   # whatever you use now
+sudo systemctl enable cssdm   # Alias=display-manager.service does the rest
 sudo reboot
 ```
 
-**To recover if something goes wrong** (boot loop):
+**To recover if something goes wrong** (boot loop): the unit gives up after two
+crashes in 30s, so you land on a console rather than a flickering screen.
 
-1. Boot to recovery/single-user mode
-2. Run: `sudo update-alternatives --config x-session-manager`
-3. Select your previous display manager
-4. Reboot again
+1. Ctrl+Alt+F2, log in
+2. `sudo systemctl disable cssdm && sudo systemctl enable sddm`
+3. `sudo reboot`
 
 ## Testing Checklist
 
-- [ ] Binary runs without crashing
+- [ ] Greeter runs windowed without crashing
+- [ ] Greeter covers the screen and takes keystrokes with no window manager
+- [ ] Daemon on a spare VT shows the greeter
+- [ ] Correct password starts the selected desktop
+- [ ] `loginctl session-status` shows the session on the right seat and VT
+- [ ] `echo $XDG_RUNTIME_DIR $XDG_CURRENT_DESKTOP` inside the desktop is right
+- [ ] `id` inside the desktop lists the user's supplementary groups
+- [ ] Logging out returns to the greeter
+- [ ] Greeter renders at all — a blank screen means the CSP blocked the WASM
+      loader; clear `csp` in `tauri.conf.json` and reopen the issue
+- [ ] A wrong password says only "Incorrect password." — no username hints
+- [ ] `journalctl -u cssdm` shows the real reason, and no password anywhere
+- [ ] Typing `root` is impossible in the dropdown; if you craft the request by
+      hand it is refused with "uid 0 is not a login account"
+- [ ] `ls -l /run/cssdm.sock` is `srw------- root root` while the greeter is up
+- [ ] Clock and date show the right local time
 - [ ] Users load correctly
-- [ ] Sessions display (at least X11 or Wayland)
-- [ ] Theme selector works
-- [ ] Can type in password field
-- [ ] Invalid credentials show error
-- [ ] Error message clears when retrying
-- [ ] Power menu shows options
-- [ ] Keyboard navigation works (Tab, Enter, Escape)
-- [ ] Responsive at different window sizes
+- [ ] Sessions listed in the bottom-left selector
+- [ ] `/etc/cssdm/theme.css` is applied when installed
+- [ ] Password field is focused on start; Enter submits
+- [ ] Invalid credentials show an error and clear the field
+- [ ] Power buttons respond (test suspend last)
+- [ ] Readable at 1024x768 as well as full resolution
 
 ## Debug Information
 
@@ -118,7 +139,7 @@ sudo reboot
 
 ```bash
 # Run with debug output
-RUST_LOG=debug ./target/release/cssdm
+RUST_LOG=debug ./target/release/cssdm --greeter
 
 # Check system logs
 journalctl -f  # If running as systemd service
@@ -157,17 +178,28 @@ On typical hardware:
 
 ## Troubleshooting
 
+| Symptom | Check |
+| --- | --- |
+| No users listed | `/etc/passwd` readable; accounts need uid ≥ 1000 and a real shell |
+| No sessions listed | `ls /usr/share/xsessions /usr/share/wayland-sessions` |
+| Login always fails | `journalctl -u cssdm`; test the policy with `su - <user>` |
+| Greeter never appears | `Xorg` on `$PATH`? `journalctl -u cssdm` reports how it failed to start |
+| Desktop starts then dies | check `XDG_RUNTIME_DIR` exists: `loginctl session-status` |
+| Theme ignored | `/etc/cssdm/theme.css` must be world-readable |
+| Blank screen | `CSSDM_WINDOWED=1 cssdm --greeter` from a desktop shows whether the webview or the display is at fault |
+
 ### Black Screen at Login
 
 **Symptom**: CSSDM starts but shows black screen
 
 **Solution**:
 ```bash
-# Check for GTK errors
-CSSDM_DEBUG=1 ./target/release/cssdm 2>&1 | grep -i error
+# Did the X server start, and what did it say?
+journalctl -u cssdm -n 50
+cat /var/log/Xorg.0.log
 
-# Verify GTK is installed
-gtk-launch --version
+# Try the greeter on its own
+CSSDM_WINDOWED=1 ./target/release/cssdm --greeter
 ```
 
 ### Users Not Loading
@@ -199,18 +231,15 @@ ls /usr/share/xsessions/
 ls /usr/share/wayland-sessions/
 ```
 
-### Theme Not Switching
+### Theme Not Applied
 
-**Symptom**: Click theme button, nothing changes
+**Symptom**: the greeter shows the built-in look
 
 **Solution**:
 ```bash
-# Verify themes are in correct location
-ls -la ~/.local/share/cssdm/themes/
-ls -la /usr/share/cssdm/themes/
-
-# Check theme.json is valid
-cat ~/.local/share/cssdm/themes/my-theme/theme.json | jq .
+# One file, read at startup, must be world-readable
+ls -l /etc/cssdm/theme.css
+sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css
 ```
 
 ## Next Steps After Testing
@@ -229,11 +258,8 @@ Once you've verified everything works:
 
 3. **System-wide installation**:
    ```bash
-   sudo cp target/release/cssdm /usr/local/bin/
-   sudo mkdir -p /usr/share/cssdm/themes
-   sudo cp -r themes/* /usr/share/cssdm/themes/
-   sudo update-alternatives --install /usr/bin/x-session-manager \
-     x-session-manager /usr/local/bin/cssdm 100
+   make systemd-install
+   sudo systemctl disable sddm && sudo systemctl enable cssdm
    ```
 
 ## Reporting Issues
@@ -260,8 +286,8 @@ If you find problems during testing:
 rm ~/.local/bin/cssdm
 
 # Restore original DM (if changed)
-sudo update-alternatives --config x-session-manager
+sudo systemctl disable cssdm && sudo systemctl enable sddm
 
-# Remove temporary files
-rm -rf ~/.local/share/cssdm/
+# Remove the installed theme, if you added one
+sudo rm -rf /etc/cssdm
 ```

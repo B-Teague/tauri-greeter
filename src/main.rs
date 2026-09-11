@@ -1,13 +1,8 @@
+// Copyright (C) 2026 Brian Teague
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 mod app;
 
-use app::*;
-use leptos::prelude::*;
-
 fn main() {
-    console_error_panic_hook::set_once();
-    mount_to_body(|| {
-        view! {
-            <App/>
-        }
-    })
+    leptos::mount::mount_to_body(app::App);
 }

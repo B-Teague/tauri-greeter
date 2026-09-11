@@ -1,27 +1,29 @@
 [Unit]
 Description=CSSDM Display Manager
-After=systemd-user-sessions.service
 Conflicts=getty@tty1.service
+After=systemd-user-sessions.service getty@tty1.service plymouth-quit.service systemd-logind.service
+PartOf=graphical.target
+# Two crashes in 30s and systemd gives up, leaving a usable console instead of
+# a login screen that flickers forever.
+StartLimitIntervalSec=30
+StartLimitBurst=2
 
 [Service]
 Type=simple
-User=root
-Environment="XDG_SEAT=seat0"
-Environment="XDG_VTNR=1"
-Environment="XDG_SESSION_CLASS=greeter"
 ExecStart=/usr/local/bin/cssdm
-StandardInput=tty
-StandardOutput=journal
-StandardError=journal
-TTYPath=/dev/tty1
-KillMode=none
 Restart=always
 RestartSec=3s
-TimeoutStopSec=30
 
-# Keep session running after DM exits (session will replace this process)
-KillMode=none
+# The greeter's kiosk compositor takes this VT, and the desktop inherits it
+# when the greeter exits. pam_systemd reads the seat and VT back out of the
+# PAM environment to register the logind session.
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Environment="XDG_SEAT=seat0"
+Environment="XDG_VTNR=1"
 
 [Install]
-WantedBy=graphical.target
 Alias=display-manager.service

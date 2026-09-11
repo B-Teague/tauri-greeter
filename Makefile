@@ -1,139 +1,75 @@
-.PHONY: help build release install uninstall test clean systemd-install systemd-uninstall
+.PHONY: help build release test third-party install uninstall systemd-install systemd-uninstall verify package clean
 
-# CSSDM Display Manager Makefile
-# Usage: make [target]
+BINARY := target/release/cssdm
 
 help:
-	@echo "CSSDM Build & Install Targets"
-	@echo ""
-	@echo "Build targets:"
-	@echo "  make build          - Build CSSDM in debug mode"
-	@echo "  make release        - Build CSSDM in release mode (optimized)"
-	@echo "  make test           - Run all unit tests"
-	@echo ""
-	@echo "Install targets:"
-	@echo "  make install        - Install CSSDM (requires sudo)"
-	@echo "  make uninstall      - Remove CSSDM installation"
-	@echo "  make systemd-install - Install systemd service (requires sudo)"
-	@echo "  make systemd-uninstall - Remove systemd service"
-	@echo ""
-	@echo "Utility targets:"
-	@echo "  make clean          - Clean build artifacts"
-	@echo "  make verify         - Verify installation"
+	@echo "build             Build the greeter (debug)"
+	@echo "release           Build the greeter (optimized)"
+	@echo "test              Run the backend unit tests"
+	@echo "third-party       Regenerate THIRD-PARTY-LICENSES.md (needs cargo-about)"
+	@echo "install           Install binary and example themes (sudo)"
+	@echo "uninstall         Remove the installation (sudo)"
+	@echo "systemd-install   Install and enable the systemd unit (sudo)"
+	@echo "systemd-uninstall Disable and remove the systemd unit (sudo)"
+	@echo "package           Build the release binary and an Arch package"
+	@echo "verify            Report what is installed"
+	@echo "clean             Remove build artifacts"
 
-# Build targets
+# The UI is a Leptos/WASM bundle that trunk writes to dist/; tauri embeds it
+# into the binary, so it has to be built first.
 build:
-	@echo "Building CSSDM (debug)..."
-	cargo build
+	trunk build
+	cargo build -p cssdm --features custom-protocol
 
 release:
-	@echo "Building CSSDM (release)..."
-	cargo build --release
+	trunk build --release
+	cargo build --release -p cssdm --features custom-protocol
 
 test:
-	@echo "Running tests..."
-	cd src-tauri && cargo test --lib
+	cargo test -p cssdm --lib
 
-# Install targets
+# The binary statically links ~180 permissively licensed crates, whose notices
+# have to ship with it. Rerun after touching Cargo.lock.
+# Needs: cargo install cargo-about --locked --features cli
+third-party:
+	python3 packaging/third-party-licenses.py
+
 install: release
-	@echo "Installing CSSDM..."
-	@if [ ! -f target/release/cssdm ]; then \
-		echo "Error: Release binary not found. Run 'make release' first."; \
-		exit 1; \
-	fi
-	sudo install -m 755 target/release/cssdm /usr/local/bin/
-	sudo mkdir -p /usr/share/cssdm/themes
-	sudo cp -r themes/light /usr/share/cssdm/themes/
-	sudo cp -r themes/high-contrast /usr/share/cssdm/themes/
-	@echo "✓ CSSDM installed to /usr/local/bin/cssdm"
-	@echo "✓ Themes installed to /usr/share/cssdm/themes/"
-	@echo ""
-	@echo "Next steps:"
-	@echo "  1. Install systemd service: make systemd-install"
-	@echo "  2. Set as default DM: sudo update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/local/bin/cssdm 100"
-	@echo "  3. Reboot to test: sudo reboot"
+	sudo install -Dm755 $(BINARY) /usr/local/bin/cssdm
+	sudo install -Dm644 -t /usr/share/cssdm/themes themes/*.css
+	sudo install -Dm644 -t /usr/share/licenses/cssdm LICENSE THIRD-PARTY-LICENSES.md
+	@echo "Installed. Next: make systemd-install"
+	@echo "Optional theme: sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css"
 
 uninstall:
-	@echo "Uninstalling CSSDM..."
-	@if [ -f /usr/local/bin/cssdm ]; then \
-		sudo rm /usr/local/bin/cssdm; \
-		echo "✓ Removed /usr/local/bin/cssdm"; \
-	fi
-	@if [ -d /usr/share/cssdm/themes ]; then \
-		sudo rm -rf /usr/share/cssdm/themes; \
-		echo "✓ Removed /usr/share/cssdm/themes/"; \
-	fi
-	@echo "✓ CSSDM uninstalled"
+	sudo rm -f /usr/local/bin/cssdm
+	sudo rm -rf /usr/share/cssdm /usr/share/licenses/cssdm
 
-# Systemd service targets
 systemd-install: install
-	@echo "Installing systemd service..."
-	sudo cp cssdm.service /etc/systemd/system/
+	sudo install -Dm644 cssdm.service /etc/systemd/system/cssdm.service
 	sudo systemctl daemon-reload
 	sudo systemctl enable cssdm.service
-	@echo "✓ systemd service installed and enabled"
-	@echo ""
-	@echo "To start the service:"
-	@echo "  sudo systemctl start cssdm"
-	@echo ""
-	@echo "To check status:"
-	@echo "  systemctl status cssdm"
-	@echo ""
-	@echo "To view logs:"
-	@echo "  journalctl -u cssdm -f"
+	@echo "Enabled. Start with: sudo systemctl start cssdm"
 
 systemd-uninstall:
-	@echo "Removing systemd service..."
-	sudo systemctl disable cssdm.service
-	@if [ -f /etc/systemd/system/cssdm.service ]; then \
-		sudo rm /etc/systemd/system/cssdm.service; \
-		echo "✓ Removed /etc/systemd/system/cssdm.service"; \
-	fi
+	-sudo systemctl disable cssdm.service
+	sudo rm -f /etc/systemd/system/cssdm.service
 	sudo systemctl daemon-reload
-	@echo "✓ systemd service removed"
-
-# Utility targets
-clean:
-	@echo "Cleaning build artifacts..."
-	cargo clean
-	rm -rf dist/
-	@echo "✓ Cleaned"
 
 verify:
-	@echo "Verifying CSSDM installation..."
-	@echo ""
-	@echo "Binary:"
-	@if [ -f /usr/local/bin/cssdm ]; then \
-		echo "  ✓ /usr/local/bin/cssdm exists"; \
-		echo "  ✓ Binary size: $$(du -h /usr/local/bin/cssdm | cut -f1)"; \
-	else \
-		echo "  ✗ /usr/local/bin/cssdm not found (install not complete)"; \
-	fi
-	@echo ""
-	@echo "Themes:"
-	@if [ -d /usr/share/cssdm/themes ]; then \
-		echo "  ✓ Theme directory exists"; \
-		echo "  ✓ Installed themes:"; \
-		ls -1 /usr/share/cssdm/themes/ | sed 's/^/    - /'; \
-	else \
-		echo "  ✗ Theme directory not found"; \
-	fi
-	@echo ""
-	@echo "systemd service:"
-	@if [ -f /etc/systemd/system/cssdm.service ]; then \
-		echo "  ✓ systemd service installed"; \
-		if systemctl is-enabled cssdm.service >/dev/null 2>&1; then \
-			echo "  ✓ Service is enabled"; \
-		else \
-			echo "  ✗ Service is disabled"; \
-		fi; \
-	else \
-		echo "  ✗ systemd service not installed"; \
-	fi
-	@echo ""
-	@echo "Display manager alternatives:"
-	@if update-alternatives --query x-session-manager 2>/dev/null | grep -q "cssdm"; then \
-		echo "  ✓ cssdm registered as display manager"; \
-	else \
-		echo "  ✗ cssdm not registered (run: sudo update-alternatives --install ...)"; \
-	fi
+	@test -x /usr/local/bin/cssdm && echo "ok   binary: /usr/local/bin/cssdm" || echo "MISS binary: /usr/local/bin/cssdm"
+	@test -f /etc/systemd/system/cssdm.service && echo "ok   unit: /etc/systemd/system/cssdm.service" || echo "MISS unit: /etc/systemd/system/cssdm.service"
+	@systemctl is-enabled cssdm.service 2>/dev/null | sed 's/^/     unit is /' || true
+	@test -f /etc/cssdm/theme.css && echo "ok   theme: /etc/cssdm/theme.css" || echo "--   theme: none installed (built-in theme in use)"
+	@ls /usr/share/cssdm/themes/*.css 2>/dev/null | sed 's/^/     example /' || true
+
+# makepkg only packages what release built; it never compiles anything itself.
+package: release
+	cd packaging/arch && makepkg -f
+	@ls -1 packaging/arch/*.pkg.tar.* | sed 's/^/built /'
+	@echo "Install with: sudo pacman -U packaging/arch/*.pkg.tar.zst"
+
+clean:
+	cargo clean
+	rm -rf dist
+	rm -rf packaging/arch/pkg packaging/arch/src packaging/arch/*.pkg.tar.*

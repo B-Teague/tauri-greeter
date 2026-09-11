@@ -1,0 +1,28 @@
+# Only the targets cssdm is actually built for; without this the crate list
+# picks up every Windows and macOS dependency in the graph.
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+ignore-build-dependencies = false
+ignore-dev-dependencies = true
+# Every license in the dependency graph. A crate under anything else fails the
+# build, which is the point: it would also be a GPLv3 compatibility question.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "0BSD",
+    "BSL-1.0",
+    "Unlicense",
+    "MIT-0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "OpenSSL",
+]
+
+# cssdm itself is GPL-3.0-or-later and does not belong in a third-party list;
+# both workspace crates are `publish = false`, so this drops them.
+private = { ignore = true }

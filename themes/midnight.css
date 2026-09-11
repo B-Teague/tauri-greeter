@@ -1,0 +1,193 @@
+/* Copyright (C) 2026 Brian Teague
+   SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* Midnight — a corner-card theme.
+ *
+ * Proof that a theme owns the layout, not just the palette: the clock moves to
+ * the top-left, the power buttons become a circular icon rail on the right, and
+ * the login card sits in the bottom-right corner. All of it comes from one
+ * grid-template-areas rewrite below. No Rust changed to make this possible. */
+
+:root {
+  --backdrop: radial-gradient(125% 125% at 82% 12%, #1d2f52 0%, #0e1626 52%, #05070e 100%);
+  --fg: #eaf0ff;
+  --fg-muted: rgba(234, 240, 255, 0.5);
+  --field-bg: rgba(255, 255, 255, 0.07);
+  --field-fg: #eaf0ff;
+  --focus: #6ee7ff;
+  --error: #ff8fa3;
+  --bar-bg: transparent;
+
+  /* Bigger field, pill corners, smaller avatar and icons. */
+  --avatar-size: 3rem;
+  --field-height: 3rem;
+  --field-width: min(20rem, 70vw);
+  --field-radius: 999px;
+  --icon-size: 1.1rem;
+
+  color-scheme: dark;
+}
+
+body {
+  text-shadow: none;
+}
+
+/* Layout. Two columns: an open left field for the clock, a right rail that
+ * carries the controls. */
+.screen {
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr auto auto auto auto;
+  grid-template-areas:
+    "clock   actions"
+    ".       ."
+    ".       identity"
+    ".       prompt"
+    ".       error"
+    "status  status";
+  justify-items: end;
+  gap: 0.75rem 2.5rem;
+  padding: clamp(2rem, 5vh, 3.5rem) clamp(1.5rem, 4vw, 3.5rem) 1rem;
+}
+
+/* Clock — oversized, flush left, date as a spaced caption. */
+
+.clock {
+  justify-self: start;
+  text-align: left;
+}
+
+.time {
+  font-size: clamp(3.25rem, 10vw, 7.5rem);
+  font-weight: 200;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.date {
+  margin-top: 0.5rem;
+  color: var(--fg-muted);
+  font-size: clamp(0.6rem, 1.1vw, 0.72rem);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.34em;
+}
+
+/* Power — a vertical rail of circular icon buttons, labels hidden. */
+
+.actions {
+  align-self: start;
+  margin-top: 0.5rem;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.action {
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 1;
+}
+
+/* Safe because the button carries an aria-label of its own. */
+.action span {
+  display: none;
+}
+
+.action:hover {
+  border-color: var(--focus);
+  background: rgba(110, 231, 255, 0.16);
+}
+
+/* Shut Down is the consequential one, so it reads as separate. */
+.action.shutdown {
+  margin-top: 0.45rem;
+  border-color: rgba(255, 143, 163, 0.3);
+}
+
+.action.shutdown:hover {
+  border-color: var(--error);
+  background: rgba(255, 143, 163, 0.16);
+}
+
+/* Identity — avatar and name on one line, right-aligned above the field. */
+
+.identity {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.avatar {
+  filter: none;
+  fill: rgba(255, 255, 255, 0.12);
+}
+
+.avatar .head,
+.avatar .body {
+  fill: var(--fg);
+}
+
+.user {
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: right;
+  text-align-last: right;
+  letter-spacing: 0.02em;
+}
+
+/* Password — one frosted pill with the submit button tucked inside it. */
+
+.prompt {
+  position: relative;
+  gap: 0;
+}
+
+.password {
+  padding: 0 3.4rem 0 1.2rem;
+  border-color: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.password::placeholder {
+  color: var(--fg-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+.enter {
+  position: absolute;
+  right: 0.35rem;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--focus);
+  color: #05070e;
+  font-size: 1rem;
+}
+
+.error {
+  font-size: 0.78rem;
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+
+/* Status — a full-width footer rule rather than a corner pill. */
+
+.status {
+  justify-self: stretch;
+  justify-content: flex-end;
+  gap: 1.75rem;
+  padding: 0.7rem 0 0.15rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}

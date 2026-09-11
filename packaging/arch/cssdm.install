@@ -1,0 +1,39 @@
+post_install() {
+	cat <<-'EOF'
+
+	  cssdm is installed but NOT enabled. Enabling it replaces your current
+	  display manager, and a greeter that fails to come up leaves you with no
+	  way in, so that step is left to you.
+
+	  Try it first without touching your current setup. From a console on a
+	  free VT (Ctrl+Alt+F3):
+
+	      sudo XDG_VTNR=3 XDG_SEAT=seat0 /usr/bin/cssdm
+
+	  Your existing session stays on tty1; Ctrl+Alt+F1 goes back to it.
+
+	  Once that works:
+
+	      systemctl disable sddm      # or gdm, lightdm — whichever is enabled
+	      systemctl enable cssdm
+
+	  Optional theme:
+
+	      install -Dm644 /usr/share/cssdm/themes/midnight.css /etc/cssdm/theme.css
+
+	EOF
+}
+
+post_upgrade() {
+	if systemctl is-enabled cssdm.service >/dev/null 2>&1; then
+		echo "  cssdm: the new binary is used at the next boot. Restarting the"
+		echo "         service now would end the session you are sitting in."
+	fi
+}
+
+pre_remove() {
+	# Disable, never stop: stopping the display manager kills the session the
+	# user is logged into. Left enabled, the dangling unit would hold up
+	# graphical.target at the next boot.
+	systemctl disable cssdm.service >/dev/null 2>&1 || true
+}
