@@ -1,16 +1,15 @@
-.PHONY: help build release test third-party install uninstall systemd-install systemd-uninstall verify package clean
+.PHONY: help build release test third-party install uninstall test-mode verify package clean
 
-BINARY := target/release/cssdm
+BINARY := target/release/tauri-greeter
 
 help:
 	@echo "build             Build the greeter (debug)"
 	@echo "release           Build the greeter (optimized)"
 	@echo "test              Run the backend unit tests"
 	@echo "third-party       Regenerate THIRD-PARTY-LICENSES.md (needs cargo-about)"
-	@echo "install           Install binary and example themes (sudo)"
+	@echo "install           Install binary, themes and the LightDM greeter entry (sudo)"
 	@echo "uninstall         Remove the installation (sudo)"
-	@echo "systemd-install   Install and enable the systemd unit (sudo)"
-	@echo "systemd-uninstall Disable and remove the systemd unit (sudo)"
+	@echo "test-mode         Run the greeter under a nested LightDM (no root, no risk)"
 	@echo "package           Build the release binary and an Arch package"
 	@echo "verify            Report what is installed"
 	@echo "clean             Remove build artifacts"
@@ -19,14 +18,14 @@ help:
 # into the binary, so it has to be built first.
 build:
 	trunk build
-	cargo build -p cssdm --features custom-protocol
+	cargo build -p tauri-greeter --features custom-protocol
 
 release:
 	trunk build --release
-	cargo build --release -p cssdm --features custom-protocol
+	cargo build --release -p tauri-greeter --features custom-protocol
 
 test:
-	cargo test -p cssdm --lib
+	cargo test -p tauri-greeter --lib
 
 # The binary statically links ~180 permissively licensed crates, whose notices
 # have to ship with it. Rerun after touching Cargo.lock.
@@ -35,33 +34,34 @@ third-party:
 	python3 packaging/third-party-licenses.py
 
 install: release
-	sudo install -Dm755 $(BINARY) /usr/local/bin/cssdm
-	sudo install -Dm644 -t /usr/share/cssdm/themes themes/*.css
-	sudo install -Dm644 -t /usr/share/licenses/cssdm LICENSE THIRD-PARTY-LICENSES.md
-	@echo "Installed. Next: make systemd-install"
-	@echo "Optional theme: sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css"
+	sudo install -Dm755 $(BINARY) /usr/local/bin/tauri-greeter
+	sudo install -Dm644 -t /usr/share/tauri-greeter/themes themes/*.css
+	sudo install -Dm644 -t /usr/share/licenses/tauri-greeter LICENSE THIRD-PARTY-LICENSES.md
+	sudo install -Dm644 packaging/tauri-greeter.desktop /usr/share/xgreeters/tauri-greeter.desktop
+	@echo "Installed, but LightDM is still using its current greeter. To switch:"
+	@echo "  printf '[Seat:*]\\ngreeter-session=tauri-greeter\\n' |"
+	@echo "      sudo install -Dm644 /dev/stdin /etc/lightdm/lightdm.conf.d/50-tauri-greeter.conf"
+	@echo "Optional theme: sudo install -Dm644 themes/midnight.css /etc/tauri-greeter/theme.css"
 
 uninstall:
-	sudo rm -f /usr/local/bin/cssdm
-	sudo rm -rf /usr/share/cssdm /usr/share/licenses/cssdm
+	sudo rm -f /usr/local/bin/tauri-greeter
+	sudo rm -rf /usr/share/tauri-greeter /usr/share/licenses/tauri-greeter
+	sudo rm -f /usr/share/xgreeters/tauri-greeter.desktop
 
-systemd-install: install
-	sudo install -Dm644 cssdm.service /etc/systemd/system/cssdm.service
-	sudo systemctl daemon-reload
-	sudo systemctl enable cssdm.service
-	@echo "Enabled. Start with: sudo systemctl start cssdm"
-
-systemd-uninstall:
-	-sudo systemctl disable cssdm.service
-	sudo rm -f /etc/systemd/system/cssdm.service
-	sudo systemctl daemon-reload
+# Runs a whole LightDM inside a nested X server as your own user. Nothing on
+# the real seat is touched, so a greeter that fails here costs nothing.
+# Needs: lightdm, xorg-server-xephyr. See LOCAL_TESTING.md.
+test-mode: install
+	packaging/test-mode.sh
 
 verify:
-	@test -x /usr/local/bin/cssdm && echo "ok   binary: /usr/local/bin/cssdm" || echo "MISS binary: /usr/local/bin/cssdm"
-	@test -f /etc/systemd/system/cssdm.service && echo "ok   unit: /etc/systemd/system/cssdm.service" || echo "MISS unit: /etc/systemd/system/cssdm.service"
-	@systemctl is-enabled cssdm.service 2>/dev/null | sed 's/^/     unit is /' || true
-	@test -f /etc/cssdm/theme.css && echo "ok   theme: /etc/cssdm/theme.css" || echo "--   theme: none installed (built-in theme in use)"
-	@ls /usr/share/cssdm/themes/*.css 2>/dev/null | sed 's/^/     example /' || true
+	@test -x /usr/local/bin/tauri-greeter && echo "ok   binary: /usr/local/bin/tauri-greeter" || echo "MISS binary: /usr/local/bin/tauri-greeter"
+	@test -f /usr/share/xgreeters/tauri-greeter.desktop && echo "ok   greeter entry: /usr/share/xgreeters/tauri-greeter.desktop" || echo "MISS greeter entry: /usr/share/xgreeters/tauri-greeter.desktop"
+	@selected=$$(grep -rhs "^greeter-session=" /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.d/ 2>/dev/null); \
+	  if [ -n "$$selected" ]; then echo "$$selected" | sed 's/^/     lightdm /'; \
+	  else echo "     lightdm greeter-session: unset (LightDM's default greeter is in use)"; fi
+	@test -f /etc/tauri-greeter/theme.css && echo "ok   theme: /etc/tauri-greeter/theme.css" || echo "--   theme: none installed (built-in theme in use)"
+	@ls /usr/share/tauri-greeter/themes/*.css 2>/dev/null | sed 's/^/     example /' || true
 
 # makepkg only packages what release built; it never compiles anything itself.
 package: release

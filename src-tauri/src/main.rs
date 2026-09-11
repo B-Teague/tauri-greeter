@@ -7,7 +7,7 @@ fn main() {
     if std::env::args().any(|argument| argument == "--version") {
         println!(
             concat!(
-                "cssdm ", env!("CARGO_PKG_VERSION"), "\n",
+                "tauri-greeter ", env!("CARGO_PKG_VERSION"), "\n",
                 "Copyright (C) 2026 Brian Teague\n",
                 "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>\n",
                 "This is free software: you are free to change and redistribute it.\n",
@@ -17,11 +17,7 @@ fn main() {
         return;
     }
 
-    // Started with --greeter by the daemon, on the X display the daemon owns.
-    // Without it, this is the daemon itself: the process systemd starts.
-    if !std::env::args().any(|argument| argument == "--greeter") {
-        cssdm_lib::daemon::run()
-    }
-
-    cssdm_lib::run()
+    // LightDM starts this on the X display it owns, as the `lightdm` user. It
+    // is the greeter and nothing else: there is no daemon half any more.
+    tauri_greeter_lib::run()
 }

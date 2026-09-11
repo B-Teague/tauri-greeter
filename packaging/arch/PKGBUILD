@@ -1,20 +1,26 @@
 # Maintainer: Brian Teague <br.teague@gmail.com>
 
-# Binary package: it installs an already-built cssdm, it does not compile one.
+# Binary package: it installs an already-built tauri-greeter, it does not compile one.
 # Build the binary first (`make release` in the repo root, or `make package`
 # which does both), then run makepkg here.
 
-pkgname=cssdm
-pkgver=0.1.0
-pkgrel=4
-pkgdesc="CSS-themeable Linux display manager, with a Tauri/Leptos greeter"
+pkgname=tauri-greeter
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="CSS-themeable LightDM greeter, built with Tauri and Leptos"
 # A prebuilt ELF is packaged as-is, so this really is x86_64 only.
 arch=('x86_64')
-url="https://github.com/B-Teague/CSSDM"
+url="https://github.com/B-Teague/tauri-greeter"
 license=('GPL-3.0-or-later')
-# The daemon runs an X server on the VT to show the greeter on; everything else
-# here is linked into the binary.
-depends=('xorg-server' 'webkit2gtk-4.1' 'gtk3' 'pam' 'systemd-libs')
+# LightDM starts the X server, authenticates and launches the session; this
+# package is only the greeter it draws with. liblightdm-gobject-1 ships in the
+# lightdm package and is linked at runtime.
+depends=('lightdm' 'webkit2gtk-4.1' 'gtk3' 'glib2')
+# 0.2.0 renamed the project from cssdm and made it a LightDM greeter rather
+# than a display manager of its own. Anyone on the old package is upgraded
+# across the rename rather than left with both installed.
+replaces=('cssdm')
+conflicts=('cssdm')
 install="$pkgname.install"
 # Nothing is compiled here, and the binary is already stripped by the release
 # profile — leave it alone rather than have makepkg hunt for debug symbols.
@@ -22,7 +28,7 @@ options=('!strip' '!debug')
 
 # Files come from the checkout this PKGBUILD lives in. To publish a -bin
 # package on the AUR, drop _repo and use a release artifact instead:
-#   source=("$url/releases/download/v$pkgver/cssdm-$pkgver-x86_64.tar.gz")
+#   source=("$url/releases/download/v$pkgver/tauri-greeter-$pkgver-x86_64.tar.gz")
 # with its sha256sum, then cd into "$srcdir" in package().
 source=()
 sha256sums=()
@@ -31,21 +37,21 @@ _repo="$startdir/../.."
 package() {
   cd "$_repo"
 
-  if [[ ! -f target/release/cssdm ]]; then
-    echo "==> ERROR: target/release/cssdm not found. Run 'make release' first." >&2
+  if [[ ! -f target/release/tauri-greeter ]]; then
+    echo "==> ERROR: target/release/tauri-greeter not found. Run 'make release' first." >&2
     return 1
   fi
 
-  install -Dm755 target/release/cssdm "$pkgdir/usr/bin/cssdm"
+  install -Dm755 target/release/tauri-greeter "$pkgdir/usr/bin/tauri-greeter"
 
-  # The unit in the tree points at /usr/local/bin, which is where `make install`
+  # The entry in the tree points at /usr/local/bin, which is where `make install`
   # puts things; a package owns /usr/bin instead.
-  sed 's|/usr/local/bin/cssdm|/usr/bin/cssdm|' cssdm.service |
-    install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/cssdm.service"
+  sed 's|/usr/local/bin/tauri-greeter|/usr/bin/tauri-greeter|' packaging/tauri-greeter.desktop |
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/xgreeters/tauri-greeter.desktop"
 
-  install -Dm644 -t "$pkgdir/usr/share/cssdm/themes" themes/*.css
+  install -Dm644 -t "$pkgdir/usr/share/tauri-greeter/themes" themes/*.css
   install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
     LICENSE THIRD-PARTY-LICENSES.md
   install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" \
-    README.md SECURITY.md INSTALL.md LOCAL_TESTING.md
+    README.md CHANGELOG.md SECURITY.md INSTALL.md LOCAL_TESTING.md
 }

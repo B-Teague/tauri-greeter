@@ -1,6 +1,6 @@
 [package]
-name = "cssdm-ui"
-version = "0.1.0"
+name = "tauri-greeter-ui"
+version = "0.2.0"
 authors = ["Brian Teague"]
 edition = "2021"
 license = "GPL-3.0-or-later"

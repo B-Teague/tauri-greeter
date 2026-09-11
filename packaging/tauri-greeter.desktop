@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Tauri Greeter
+Comment=CSS-themeable LightDM greeter
+Exec=/usr/local/bin/tauri-greeter
+Type=Application
+X-LightDM-Greeter=true

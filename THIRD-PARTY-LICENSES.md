@@ -1,10 +1,10 @@
 # Third-party licenses
 
-`cssdm` is distributed as a statically linked binary. It compiles in the crates
-below, all under permissive, GPLv3-compatible terms. cssdm's own license is in
+`tauri-greeter` is distributed as a statically linked binary. It compiles in the crates
+below, all under permissive, GPLv3-compatible terms. tauri-greeter's own license is in
 [LICENSE](LICENSE).
 
-Where a crate offers a choice of licenses, the one named here is the one cssdm
+Where a crate offers a choice of licenses, the one named here is the one tauri-greeter
 elects, so those are the only terms that apply. Only crates that reach a Linux
 build are listed; dev-only and other-platform dependencies are not.
 

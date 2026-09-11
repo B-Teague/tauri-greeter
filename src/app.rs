@@ -32,6 +32,8 @@ struct User {
 
 #[derive(Clone, Deserialize)]
 struct Session {
+    /// LightDM's session key. This, not the display name, is what `login` takes.
+    key: String,
     name: String,
     wayland: bool,
 }
@@ -70,7 +72,7 @@ pub fn App() -> impl IntoView {
     spawn_local(async move {
         if let Ok(loaded) = call::<Vec<Session>>("sessions", ()).await {
             // Wayland sorts first, so the first entry is the best default.
-            session.set(loaded.first().map_or(String::new(), |s| s.name.clone()));
+            session.set(loaded.first().map_or(String::new(), |s| s.key.clone()));
             sessions.set(loaded);
         }
     });
@@ -79,7 +81,7 @@ pub fn App() -> impl IntoView {
     });
 
     // Re-reads the stylesheet whenever the picker moves. The first run has an
-    // empty name, which is the operator's /etc/cssdm/theme.css -- so an
+    // empty name, which is the operator's /etc/tauri-greeter/theme.css -- so an
     // untouched greeter looks exactly as it did before the picker existed.
     Effect::new(move |_| {
         let name = theme_name.get();
@@ -198,8 +200,8 @@ pub fn App() -> impl IntoView {
                         prop:value=move || session.get()
                         on:change:target=move |ev| session.set(ev.target().value())
                     >
-                        <For each=move || sessions.get() key=|s| s.name.clone() let:candidate>
-                            <option value=candidate.name.clone()>
+                        <For each=move || sessions.get() key=|s| s.key.clone() let:candidate>
+                            <option value=candidate.key.clone()>
                                 {format!(
                                     "{} ({})",
                                     candidate.name,

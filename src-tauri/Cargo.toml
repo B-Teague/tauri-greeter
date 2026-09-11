@@ -1,7 +1,7 @@
 [package]
-name = "cssdm"
-version = "0.1.0"
-description = "CSS-themeable Linux display manager"
+name = "tauri-greeter"
+version = "0.2.0"
+description = "CSS-themeable LightDM greeter"
 authors = ["Brian Teague"]
 edition = "2021"
 license = "GPL-3.0-or-later"
@@ -10,7 +10,7 @@ publish = false
 
 [lib]
 # The `_lib` suffix keeps the lib name from colliding with the bin name.
-name = "cssdm_lib"
+name = "tauri_greeter_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -19,8 +19,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
-pam-client = "0.5"
-libc = "0.2"
+# LightDM does the authentication, so PAM is its problem, not ours. These two
+# are the FFI vocabulary -- GError, GList, g_signal_connect_data -- for
+# liblightdm-gobject-1, which `lightdm.rs` links against directly. Both already
+# come in under tauri's gtk, so neither is a new build.
+glib-sys = "0.18"
+gobject-sys = "0.18"
+
+[dev-dependencies]
 serde_json = "1"
 
 [features]

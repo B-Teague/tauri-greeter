@@ -1,4 +1,4 @@
-# Only the targets cssdm is actually built for; without this the crate list
+# Only the targets tauri-greeter is actually built for; without this the crate list
 # picks up every Windows and macOS dependency in the graph.
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 ignore-build-dependencies = false
@@ -23,6 +23,6 @@ accepted = [
     "OpenSSL",
 ]
 
-# cssdm itself is GPL-3.0-or-later and does not belong in a third-party list;
+# tauri-greeter itself is GPL-3.0-or-later and does not belong in a third-party list;
 # both workspace crates are `publish = false`, so this drops them.
 private = { ignore = true }

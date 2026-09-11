@@ -1,4 +1,11 @@
-# CSSDM Implementation Plan
+# Tauri Greeter Implementation Plan
+
+> **Historical.** This is the plan the project was built to, when it was a
+> display manager of its own: a root daemon that ran an X server, authenticated
+> through PAM and exec'd the session. That half was removed — LightDM does all
+> of it now, and this is a LightDM greeter. Phases 1 and 3–8 still describe the
+> UI, theming and packaging as built. See [README.md](README.md) for the
+> architecture that actually ships.
 
 **CSS-based Display Manager**: A Tauri-based login manager for Linux with session selection, power controls, and themeable UI.
 
@@ -112,7 +119,7 @@
 
 ### 4.2 Permissions
 
-**Note**: CSSDM runs as root (standard for display managers). Power commands work without prompts. Non-root scenarios (future enhancement):
+**Note**: Tauri Greeter runs as root (standard for display managers). Power commands work without prompts. Non-root scenarios (future enhancement):
 - Add polkit integration for unprivileged access
 - Fallback commands for non-systemd systems
 
@@ -167,7 +174,7 @@
 
 ### 6.1 Backend Theme Management ✅
 - [x] Create `src-tauri/src/theme.rs` module
-  - Scan `~/.local/share/cssdm/themes/` + `/usr/share/cssdm/themes/`
+  - Scan `~/.local/share/tauri-greeter/themes/` + `/usr/share/tauri-greeter/themes/`
   - Parse theme metadata from `theme.json` files
   - Load theme CSS content on demand
   - Embed default theme in binary (include_str macro)
@@ -302,7 +309,7 @@
 
 ### 8.1 Production Build ✅
 - [x] `cargo build --release` (optimized)
-  - Binary: `target/release/cssdm` (15 MB)
+  - Binary: `target/release/tauri-greeter` (15 MB)
   - Stripped and optimized for release
   - Startup time: < 500ms
   - Memory: ~40-50 MB idle
@@ -359,7 +366,7 @@
 
 ## Phase 9: Distribution & Packages (Future)
 
-**Goal**: Package CSSDM for all major Linux distributions
+**Goal**: Package Tauri Greeter for all major Linux distributions
 
 ### 9.1 Linux Packages
 - [ ] Debian/Ubuntu (.deb)
@@ -401,7 +408,7 @@
 ## File Structure (End State)
 
 ```
-CSSDM/
+Tauri Greeter/
 ├── Cargo.toml                    (workspace, tauri config)
 ├── Trunk.toml                    (frontend build)
 ├── index.html                    (login UI template)

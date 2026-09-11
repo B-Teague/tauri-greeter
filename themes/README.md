@@ -1,18 +1,18 @@
-# CSSDM Themes
+# Tauri Greeter Themes
 
 A theme is one CSS file. The greeter appends it after the built-in stylesheet,
-so anything you declare wins. It loads `/etc/cssdm/theme.css` at startup, and
+so anything you declare wins. It loads `/etc/tauri-greeter/theme.css` at startup, and
 the "Theme" picker in the status bar switches between the stylesheets installed
-in `/usr/share/cssdm/themes/` without restarting. The picker is a preview: it
+in `/usr/share/tauri-greeter/themes/` without restarting. The picker is a preview: it
 is not remembered, so the next greeter is back to the operator's file.
 
 ## Install a theme
 
 ```bash
-sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css
+sudo install -Dm644 themes/midnight.css /etc/tauri-greeter/theme.css
 ```
 
-Restart the greeter (`sudo systemctl restart cssdm`) to see the change.
+Restart the greeter (`sudo systemctl restart tauri-greeter`) to see the change.
 
 ## Recolour
 

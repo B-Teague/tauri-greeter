@@ -1,293 +1,211 @@
-# Local Testing Guide for CSSDM
+# Local Testing Guide for Tauri Greeter
 
-Quick guide to test the production CSSDM binary on your Linux system.
+Three ways to exercise the greeter, in increasing order of how much of the real
+thing they run. None of the first three touch your login screen.
 
-## Release Binary
+| | What it covers | Needs |
+| --- | --- | --- |
+| `make test` | the backend, including live FFI against liblightdm | nothing |
+| `TAURI_GREETER_WINDOWED=1` | the UI, user/session lists, theming | a desktop |
+| `make test-mode` | **all of it, including login** | `xorg-server-xephyr` |
+| selecting it | the real seat | nerve |
 
-**Location**: `target/release/cssdm` (build it with `make release` — the UI
-bundle must be built by trunk before cargo embeds it)
-**Status**: Ready for testing
-
-## Quick Test (Non-Destructive)
-
-### 1. Run the Greeter Alone
-
-The bare binary is the **daemon** — it takes over a VT and starts a desktop.
-Don't run that from inside your session. Run the greeter half instead:
+## 1. Unit Tests
 
 ```bash
-cd /path/to/CSSDM
-CSSDM_WINDOWED=1 ./target/release/cssdm --greeter
+make test
 ```
 
-This opens an ordinary 1280x800 window. Everything works except login, which
-reports `connect /run/cssdm.sock` — the daemon is what owns that socket.
-**Ctrl+C to exit**.
+Seven tests, and four of them talk to the real `liblightdm-gobject-1` rather
+than a mock:
 
-### 2. Test Functionality
-
-- **Clock**: shows the current time and date in your locale
-- **Users**: loaded from `/etc/passwd` (uid >= 1000 with a real shell)
-- **Sessions**: bottom-left selector lists Wayland and X11 sessions
-- **Theme**: `/etc/cssdm/theme.css` is applied if present
-- **Keyboard**: password field is focused on start, Enter submits
-
-### 3. Test Without Login
-
-- Try a wrong password (should show a PAM error and clear the field)
-- Note that repeated failures count against `pam_faillock`, same as any login
-- Leave the power buttons alone unless you mean it — they act immediately
-
-**Note**: Don't actually reboot! Exit with Ctrl+C instead.
-
-## Safe Installation (Testing Only)
-
-To test as the actual display manager:
-
-### Step 1: Note Your Current Setup
+- `reads_sessions_from_lightdm` / `reads_users_from_lightdm` — walk the actual
+  `GList`s this machine returns, checking that keys and names survive the FFI
+  and that root is not among them
+- `asks_logind_what_it_is_allowed_to_do` — the one part of the power path that
+  can be exercised without powering the machine off. Same library, same system
+  bus, same polkit subject; only the final verb differs. If this cannot reach
+  logind, neither can the buttons
+- `check_reports_and_frees_the_error` — the `GError` path, which otherwise only
+  runs when something has already gone wrong
 
 ```bash
-systemctl status display-manager   # the DM you'll restore later
+cargo test -p tauri-greeter --lib -- --nocapture   # see what they actually found
 ```
 
-### Step 2: Install Binary (Temporary)
+## 2. The Greeter Alone, in a Window
 
 ```bash
-# Copy binary to a test location (NOT system-wide yet)
-mkdir -p ~/.local/bin
-cp target/release/cssdm ~/.local/bin/
-
-# Make sure it's executable
-chmod +x ~/.local/bin/cssdm
-
-# Verify
-~/.local/bin/cssdm --version 2>/dev/null || echo "App started successfully"
+make build
+TAURI_GREETER_WINDOWED=1 ./target/debug/tauri-greeter
 ```
 
-### Step 3: Test the Greeter on a Bare X Server
+An ordinary 1280x800 window on your current desktop. Without it the greeter
+covers the screen and takes the keyboard, which is correct on LightDM's bare X
+server and unpleasant here.
 
-This is what the daemon does, minus the VT: an X server with the greeter as its
-only client, no window manager.
+There is no LightDM to talk to, so it prints:
+
+    tauri-greeter: not connected to LightDM: Unable to determine socket to daemon
+
+and login answers `Login is unavailable.` Everything else is live.
+
+**Check:**
+- [ ] The clock shows the right time and date, in your locale's format
+- [ ] The user dropdown lists the accounts `/etc/lightdm/users.conf` allows —
+      and not root, and not service accounts
+- [ ] The session dropdown lists your installed desktops, Wayland first, each
+      labelled `(Wayland)` or `(X11)`
+- [ ] The theme picker switches between the entries in
+      `/usr/share/tauri-greeter/themes` and back to "Default"
+- [ ] The password field has focus on start; Enter submits
+- [ ] A login attempt says `Login is unavailable.` and clears the field
+
+**Do not click the power buttons here.** They are not stubbed: they go to
+logind over D-Bus and will suspend or shut the machine down.
+
+Compare the dropdowns against what LightDM itself thinks:
 
 ```bash
-# From a terminal in your current session
-Xorg :9 -nolisten tcp -noreset &      # or Xephyr/Xvfb :9, if you have them
-DISPLAY=:9 ~/.local/bin/cssdm --greeter
+cat /etc/lightdm/users.conf
+lightdm --show-config | grep sessions-directory
+ls /usr/share/xsessions/ /usr/share/wayland-sessions/
 ```
 
-Login still fails here — no daemon, so no socket.
-
-### Step 4: Test the Whole Thing on a Spare VT
-
-This is the real test, and it does not touch your current display manager.
-Switch to a free VT (Ctrl+Alt+F3), log in at the console, then:
+## 3. A Whole LightDM, Nested
 
 ```bash
-sudo XDG_VTNR=3 XDG_SEAT=seat0 ~/.local/bin/cssdm
+sudo pacman -S xorg-server-xephyr     # or your distro's Xephyr package
+make test-mode
 ```
 
-The greeter takes over tty3. Log in and your desktop starts there; your
-existing session on tty1 is untouched, so Ctrl+Alt+F1 always gets you back.
-Ctrl+C on the console kills the daemon.
+This is the one that tests logging in. `packaging/test-mode.sh` starts a real
+LightDM in `--test-mode`: unprivileged, as you, with its X server nested in a
+Xephyr window. It writes a config, a run directory, a log directory and a cache
+directory into one `mktemp -d` and deletes all of it on exit — the system's
+`/etc/lightdm` and `/run/lightdm` are never opened.
 
-### Step 5: Install as the System Display Manager
+`make test-mode` runs `make install` first, because LightDM finds greeters
+through `/usr/share/xgreeters/`.
 
-Only after step 4 works.
+**Check:**
+- [ ] The greeter appears in the Xephyr window
+- [ ] A **wrong** password shows `Incorrect password.` — and nothing more
+      specific, whether the account exists or not
+- [ ] The field clears and refocuses, and a second attempt works
+- [ ] A **correct** password is accepted and LightDM proceeds to the handoff
+- [ ] The journal has a line for the failure and no password anywhere in it
+
+Test mode has no privileges, so what happens *after* authentication is not
+representative: LightDM cannot setuid, so the session it tries to start may
+fail. Authentication succeeding and LightDM accepting `start_session` is the
+part this proves. The desktop actually coming up is step 4's business.
+
+Set the window size if the default is awkward:
 
 ```bash
-sudo systemctl disable sddm   # whatever you use now
-sudo systemctl enable cssdm   # Alias=display-manager.service does the rest
-sudo reboot
+SCREEN=1920x1080 make test-mode
 ```
 
-**To recover if something goes wrong** (boot loop): the unit gives up after two
-crashes in 30s, so you land on a console rather than a flickering screen.
+### Reading the Logs
 
-1. Ctrl+Alt+F2, log in
-2. `sudo systemctl disable cssdm && sudo systemctl enable sddm`
-3. `sudo reboot`
+The script prints the temporary directory it is using. While it runs:
 
-## Testing Checklist
+```bash
+tail -f /tmp/tauri-greeter-test.*/log/lightdm.log     # LightDM and the greeter's stderr
+tail -f /tmp/tauri-greeter-test.*/log/x-0.log         # Xephyr
+```
 
-- [ ] Greeter runs windowed without crashing
-- [ ] Greeter covers the screen and takes keystrokes with no window manager
-- [ ] Daemon on a spare VT shows the greeter
-- [ ] Correct password starts the selected desktop
-- [ ] `loginctl session-status` shows the session on the right seat and VT
-- [ ] `echo $XDG_RUNTIME_DIR $XDG_CURRENT_DESKTOP` inside the desktop is right
-- [ ] `id` inside the desktop lists the user's supplementary groups
+Every `eprintln!` in the greeter — the PAM messages, the real reason behind each
+`Login is unavailable.` — comes out in the first one.
+
+## 4. The Real Seat
+
+Only after 3 passes. See [INSTALL.md](INSTALL.md#4-select-it); the rollback is
+one `rm` and a restart.
+
+Keep a way back in before you restart LightDM: a root shell on another VT
+(Ctrl+Alt+F3), or sshd running.
+
+**Check, on the real thing:**
+- [ ] A correct password starts the selected session, X11 and Wayland both
+- [ ] The session honours `XDG_CURRENT_DESKTOP` — portals, autostart and audio
+      all work, which is what tells you LightDM built the environment properly
 - [ ] Logging out returns to the greeter
-- [ ] Greeter renders at all — a blank screen means the CSP blocked the WASM
-      loader; clear `csp` in `tauri.conf.json` and reopen the issue
-- [ ] A wrong password says only "Incorrect password." — no username hints
-- [ ] `journalctl -u cssdm` shows the real reason, and no password anywhere
-- [ ] Typing `root` is impossible in the dropdown; if you craft the request by
-      hand it is refused with "uid 0 is not a login account"
-- [ ] `ls -l /run/cssdm.sock` is `srw------- root root` while the greeter is up
-- [ ] Clock and date show the right local time
-- [ ] Users load correctly
-- [ ] Sessions listed in the bottom-left selector
-- [ ] `/etc/cssdm/theme.css` is applied when installed
-- [ ] Password field is focused on start; Enter submits
-- [ ] Invalid credentials show an error and clear the field
-- [ ] Power buttons respond (test suspend last)
-- [ ] Readable at 1024x768 as well as full resolution
-
-## Debug Information
-
-### View Application Logs
-
-```bash
-# Run with debug output
-RUST_LOG=debug ./target/release/cssdm --greeter
-
-# Check system logs
-journalctl -f  # If running as systemd service
-```
-
-### Check User Data
-
-```bash
-# Verify users load correctly
-cat /etc/passwd | grep -E ':[0-9]{4}:' | head
-
-# Verify sessions detected
-ls -la /usr/share/xsessions/
-ls -la /usr/share/wayland-sessions/
-```
-
-### Test PAM Authentication
-
-```bash
-# Test authentication without CSSDM
-su $USER -c "echo 'Auth works'"  # Should prompt for password
-
-# This is what CSSDM uses internally
-```
-
-## Performance Metrics
-
-On typical hardware:
-
-- **Startup**: ~0.5 seconds
-- **User load**: ~50-100 ms
-- **Session detect**: ~50-100 ms
-- **Theme switch**: ~10 ms (instant to user)
-- **Authentication**: ~1 second (via PAM)
-- **Memory idle**: ~40-50 MB
+- [ ] Suspend resumes to the greeter
+- [ ] Restart and shut down do what they say
+- [ ] `/etc/tauri-greeter/theme.css` is applied
 
 ## Troubleshooting
 
-| Symptom | Check |
-| --- | --- |
-| No users listed | `/etc/passwd` readable; accounts need uid ≥ 1000 and a real shell |
-| No sessions listed | `ls /usr/share/xsessions /usr/share/wayland-sessions` |
-| Login always fails | `journalctl -u cssdm`; test the policy with `su - <user>` |
-| Greeter never appears | `Xorg` on `$PATH`? `journalctl -u cssdm` reports how it failed to start |
-| Desktop starts then dies | check `XDG_RUNTIME_DIR` exists: `loginctl session-status` |
-| Theme ignored | `/etc/cssdm/theme.css` must be world-readable |
-| Blank screen | `CSSDM_WINDOWED=1 cssdm --greeter` from a desktop shows whether the webview or the display is at fault |
+### Xephyr Window Opens, No Greeter
 
-### Black Screen at Login
+LightDM started its X server and then failed to launch the greeter.
 
-**Symptom**: CSSDM starts but shows black screen
-
-**Solution**:
 ```bash
-# Did the X server start, and what did it say?
-journalctl -u cssdm -n 50
-cat /var/log/Xorg.0.log
-
-# Try the greeter on its own
-CSSDM_WINDOWED=1 ./target/release/cssdm --greeter
+grep -i 'greeter\|xgreeters' /tmp/tauri-greeter-test.*/log/lightdm.log
 ```
 
-### Users Not Loading
+Usually `Exec=` in `/usr/share/xgreeters/tauri-greeter.desktop` pointing at a
+binary that is not there — `make install` writes `/usr/local/bin`, the Arch
+package `/usr/bin`. Re-run `make install`.
 
-**Symptom**: "Failed to load users" error
+### Greeter Appears, Login Says "Login is unavailable."
 
-**Solution**:
+The greeter is drawing but never connected to the daemon. In test mode this
+means LightDM did not hand it the pipe pair:
+
 ```bash
-# Verify /etc/passwd is readable
-ls -la /etc/passwd
-
-# Check you have users with UID >= 1000
-awk -F: '$3 >= 1000 {print $1, $3}' /etc/passwd
+grep -i 'connect\|socket' /tmp/tauri-greeter-test.*/log/lightdm.log
 ```
 
-### No Sessions Found
+Outside test mode, the same message means the binary was started by hand rather
+than by LightDM, which is expected.
 
-**Symptom**: Session dropdown is empty
+### Authentication Always Fails in Test Mode
 
-**Solution**:
+Test mode still runs the real PAM stack:
+
 ```bash
-# Install a desktop environment
-sudo apt install gnome-session  # GNOME
-sudo apt install kde-plasma-desktop  # KDE
-sudo apt install xfce4  # XFCE
-
-# Verify sessions installed
-ls /usr/share/xsessions/
-ls /usr/share/wayland-sessions/
+cat /etc/pam.d/lightdm
+faillock --user "$USER"
 ```
 
-### Theme Not Applied
+Repeated testing trips `pam_faillock` on real accounts. `faillock --user "$USER"
+--reset` clears it.
 
-**Symptom**: the greeter shows the built-in look
+### No Users or No Sessions
 
-**Solution**:
-```bash
-# One file, read at startup, must be world-readable
-ls -l /etc/cssdm/theme.css
-sudo install -Dm644 themes/midnight.css /etc/cssdm/theme.css
-```
+Both lists are LightDM's, not the greeter's — see
+[INSTALL.md](INSTALL.md#no-users-or-too-many).
 
-## Next Steps After Testing
+## Performance
 
-Once you've verified everything works:
+A 0.1.0 release build on typical hardware:
 
-1. **Create distribution packages** (Phase 9):
-   - Debian/Ubuntu (.deb)
-   - Fedora/RHEL (.rpm)
-   - Arch Linux (PKGBUILD)
-   - Generic tarball
-
-2. **Set up GitHub releases**:
-   - Upload binaries to releases page
-   - Create installation scripts per distro
-
-3. **System-wide installation**:
-   ```bash
-   make systemd-install
-   sudo systemctl disable sddm && sudo systemctl enable cssdm
-   ```
+- **Startup**: ~0.5 s
+- **User and session lists**: ~50–100 ms each (one D-Bus round trip)
+- **Theme switch**: ~10 ms
+- **Authentication**: ~1 s, set by PAM's own delay
+- **Memory, idle**: ~40–50 MB
 
 ## Reporting Issues
 
-If you find problems during testing:
-
-1. **Capture debug output**:
-   ```bash
-   RUST_LOG=debug ./target/release/cssdm 2>&1 | tee cssdm.log
-   ```
-
-2. **Include**:
-   - OS and distro (lsb_release -a)
-   - Desktop environment (echo $DESKTOP_SESSION)
-   - Error messages
-   - cssdm.log output
-
-3. **Reference**: See [SECURITY.md](SECURITY.md) for known limitations
-
-## Clean Up Test Installation
+<https://github.com/B-Teague/tauri-greeter/issues>, with:
 
 ```bash
-# Remove test binary
-rm ~/.local/bin/cssdm
+./target/release/tauri-greeter --version
+lightdm --version
+lightdm --show-config
+```
 
-# Restore original DM (if changed)
-sudo systemctl disable cssdm && sudo systemctl enable sddm
+and the relevant part of `/var/log/lightdm/lightdm.log`. Check it for a password
+before pasting it — the greeter never logs one, but a PAM module might.
 
-# Remove the installed theme, if you added one
-sudo rm -rf /etc/cssdm
+## Clean Up
+
+`make test-mode` cleans up after itself. To undo `make install`:
+
+```bash
+make uninstall
 ```

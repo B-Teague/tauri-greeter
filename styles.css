@@ -1,9 +1,9 @@
 /* Copyright (C) 2026 Brian Teague
    SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* CSSDM — default theme.
+/* Tauri Greeter — default theme.
  * Everything themeable lives in the custom properties below; drop an override
- * file at /etc/cssdm/theme.css to restyle the greeter without a rebuild. */
+ * file at /etc/tauri-greeter/theme.css to restyle the greeter without a rebuild. */
 
 :root {
   --backdrop: linear-gradient(160deg, #6c3b7a 0%, #8b4a6b 45%, #c86b4a 75%, #e0894f 100%);

@@ -1,30 +1,25 @@
 // Copyright (C) 2026 Brian Teague
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-mod auth;
-pub mod daemon;
-mod power;
-mod session;
+mod lightdm;
 
-use auth::User;
-use tauri::Manager;
-use power::Action;
-use session::Session;
+use lightdm::{Action, Session, User};
 use std::fs;
+use tauri::Manager;
 
 /// Operator stylesheet, injected by the UI on startup when present.
-const THEME_CSS: &str = "/etc/cssdm/theme.css";
+const THEME_CSS: &str = "/etc/tauri-greeter/theme.css";
 /// Installed stylesheets the greeter's picker can switch between.
-const THEME_DIR: &str = "/usr/share/cssdm/themes";
+const THEME_DIR: &str = "/usr/share/tauri-greeter/themes";
 
 #[tauri::command]
-fn users() -> Result<Vec<User>, String> {
-    auth::users()
+fn users() -> Vec<User> {
+    lightdm::users()
 }
 
 #[tauri::command]
 fn sessions() -> Vec<Session> {
-    session::sessions()
+    lightdm::sessions()
 }
 
 #[tauri::command]
@@ -60,49 +55,39 @@ fn theme_css(name: String) -> String {
 
 #[tauri::command]
 fn power(action: Action) -> Result<(), String> {
-    power::run(action)
+    lightdm::power(action)
 }
 
+/// `session` is a LightDM session key, not a display name: the UI sends back
+/// exactly what `sessions` gave it.
 #[tauri::command]
 fn login(username: String, password: String, session: String) -> Result<(), String> {
-    let response = daemon::request(&daemon::Request {
-        username,
-        password,
-        session,
-    })
-    .map_err(|detail| {
-        // Socket paths and errno strings say more about the machine than the
-        // person at the keyboard needs. The journal gets the real reason.
-        eprintln!("cssdm: greeter could not reach the daemon: {detail}");
-        "Login is unavailable.".to_string()
-    })?;
-    match response.error {
-        Some(error) => Err(error),
-        // The daemon holds the PAM handle and starts the desktop. The greeter's
-        // only remaining job is to get off the screen, which means exiting: the
-        // daemon stops the X server behind it and releases the display.
-        None => std::process::exit(0),
-    }
+    lightdm::login(&username, password, &session)
 }
 
 pub fn run() {
     // WebKitGTK renders through a DMABUF buffer it allocates with GBM. On the
-    // bare Xorg the greeter runs on -- no compositor, and whatever driver the
-    // machine happens to have -- that allocation fails ("Failed to create GBM
-    // buffer ... Invalid argument") and WebKit answers by painting nothing:
-    // a white screen, with no error from us to say why. The software path is
-    // fast enough for a login form. Set the variable yourself to opt back in
-    // on hardware where the fast path works.
+    // bare Xorg LightDM starts for its greeter -- no compositor, and whatever
+    // driver the machine happens to have -- that allocation fails ("Failed to
+    // create GBM buffer ... Invalid argument") and WebKit answers by painting
+    // nothing: a white screen, with no error from us to say why. The software
+    // path is fast enough for a login form. Set the variable yourself to opt
+    // back in on hardware where the fast path works.
     if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 
     tauri::Builder::default()
         .setup(|app| {
-            // CSSDM_WINDOWED=1 runs the greeter in an ordinary window, so it can
-            // be tested from a running desktop instead of covering the screen.
+            // GLib's main context exists by now and Tauri's GTK loop is about to
+            // start turning it, which is where LightDM's replies will arrive.
+            lightdm::connect();
+
+            // TAURI_GREETER_WINDOWED=1 runs the greeter in an ordinary window, so
+            // it can be tested from a running desktop instead of covering the
+            // screen.
             if let Some(window) = app.get_webview_window("main") {
-                if std::env::var_os("CSSDM_WINDOWED").is_some() {
+                if std::env::var_os("TAURI_GREETER_WINDOWED").is_some() {
                     let _ = window.set_fullscreen(false);
                     let _ = window.set_decorations(true);
                     let _ = window.set_size(tauri::LogicalSize::new(1280.0, 800.0));

@@ -11,21 +11,21 @@
 # names accounts, sessions and uids.
 *.log
 
-# Crash dumps. This process holds a password in memory while PAM checks it, so
-# a core file from cssdm is the single worst thing in this tree to publish.
+# Crash dumps. This process holds a password in memory while LightDM checks it, so
+# a core file from tauri-greeter is the single worst thing in this tree to publish.
 core
 core.*
 *.core
 vgcore.*
 
-# Credentials. Nothing in a display manager should need a key file, which is
+# Credentials. Nothing in a greeter should need a key file, which is
 # exactly the situation where one gets committed without anyone noticing.
 .env
 .env.*
 *.pem
 *.key
 
-# Local copies of system files, for anyone debugging a PAM stack in here
+# Local copies of system files, for anyone debugging LightDM's PAM stack in here
 /etc/
 passwd.*
 shadow*
