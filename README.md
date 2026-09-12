@@ -223,20 +223,3 @@ Copyright (C) 2026 Brian Teague.
 Tauri Greeter is free software under the **GNU General Public License v3.0 or later** —
 see [LICENSE](LICENSE). It comes with NO WARRANTY, to the extent permitted by
 law.
-
-The binary statically links around 180 crates. Every one is available under a
-permissive, GPLv3-compatible license — MIT for all but a handful, plus
-Unicode-3.0, Zlib, BSL-1.0 and CC0-1.0 — and
-[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) lists each crate with its
-elected license and its copyright holders, followed by one copy of each of
-those five license texts — the holders live in the table, so no text is
-repeated per crate. `make third-party` regenerates it:
-[cargo-about](https://github.com/EmbarkStudios/cargo-about) resolves and elects
-the licenses, `packaging/third-party-licenses.py` renders them. `about.toml`
-holds the accepted-license list, so a dependency arriving under anything else
-fails that command instead of shipping unnoticed. Both files are installed to
-`/usr/share/licenses/tauri-greeter/`.
-
-The application icon in `src-tauri/icons/` is Tauri Greeter's own, drawn from
-`icon.svg` in that directory and covered by the same license. Nothing here
-carries the Tauri or Leptos logos.
