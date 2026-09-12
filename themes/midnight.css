@@ -173,7 +173,10 @@ body {
   font-size: 1rem;
 }
 
+/* The whole message stack hugs the right edge with the rest of the card, not
+   just its text: .error is a flex column, so the alignment is the flex one. */
 .error {
+  align-items: flex-end;
   font-size: 0.78rem;
   text-align: right;
   letter-spacing: 0.02em;

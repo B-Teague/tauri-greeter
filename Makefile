@@ -50,7 +50,7 @@ uninstall:
 
 # Runs a whole LightDM inside a nested X server as your own user. Nothing on
 # the real seat is touched, so a greeter that fails here costs nothing.
-# Needs: lightdm, xorg-server-xephyr. See LOCAL_TESTING.md.
+# Needs: lightdm, xorg-server-xephyr. See INSTALL.md.
 test-mode: install
 	packaging/test-mode.sh
 

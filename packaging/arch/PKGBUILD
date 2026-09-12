@@ -5,7 +5,7 @@
 # which does both), then run makepkg here.
 
 pkgname=tauri-greeter
-pkgver=0.2.0
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="CSS-themeable LightDM greeter, built with Tauri and Leptos"
 # A prebuilt ELF is packaged as-is, so this really is x86_64 only.
@@ -16,11 +16,6 @@ license=('GPL-3.0-or-later')
 # package is only the greeter it draws with. liblightdm-gobject-1 ships in the
 # lightdm package and is linked at runtime.
 depends=('lightdm' 'webkit2gtk-4.1' 'gtk3' 'glib2')
-# 0.2.0 renamed the project from cssdm and made it a LightDM greeter rather
-# than a display manager of its own. Anyone on the old package is upgraded
-# across the rename rather than left with both installed.
-replaces=('cssdm')
-conflicts=('cssdm')
 install="$pkgname.install"
 # Nothing is compiled here, and the binary is already stripped by the release
 # profile — leave it alone rather than have makepkg hunt for debug symbols.
@@ -53,5 +48,5 @@ package() {
   install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
     LICENSE THIRD-PARTY-LICENSES.md
   install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" \
-    README.md CHANGELOG.md SECURITY.md INSTALL.md LOCAL_TESTING.md
+    README.md CHANGELOG.md SECURITY.md INSTALL.md
 }

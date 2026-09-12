@@ -7,7 +7,7 @@
 # covered by a global gitignore here, which does nothing for anyone who clones.
 .claude
 
-# Test output. LOCAL_TESTING.md pipes journal output to these, and the journal
+# Test output. Journal output gets piped to these while testing, and the journal
 # names accounts, sessions and uids.
 *.log
 
@@ -48,5 +48,4 @@ shadow*
 # Deliberately NOT ignored:
 #   Cargo.lock          this is an application, not a library — the exact crate
 #                       versions that shipped are part of the security story
-#   .vscode/            only extensions.json and settings.json, both shared
 #   src-tauri/gen/      already handled by src-tauri/.gitignore

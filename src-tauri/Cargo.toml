@@ -1,6 +1,6 @@
 [package]
 name = "tauri-greeter"
-version = "0.2.0"
+version = "0.1.0"
 description = "CSS-themeable LightDM greeter"
 authors = ["Brian Teague"]
 edition = "2021"
@@ -19,12 +19,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
-# LightDM does the authentication, so PAM is its problem, not ours. These two
-# are the FFI vocabulary -- GError, GList, g_signal_connect_data -- for
-# liblightdm-gobject-1, which `lightdm.rs` links against directly. Both already
-# come in under tauri's gtk, so neither is a new build.
-glib-sys = "0.18"
-gobject-sys = "0.18"
+# LightDM does the authentication, so PAM is its problem, not ours. This is the
+# vocabulary -- GError, GList, GObject, the main context -- for
+# liblightdm-gobject-1, which `lightdm.rs` links against directly. It comes in
+# under tauri's gtk already, so it is not a new build, and it re-exports the raw
+# `ffi`/`gobject_ffi` bindings for the handful of places that still need them.
+glib = "0.18"
+# Backgrounds travel to the webview as data: URIs; tauri already builds this.
+base64 = "0.22"
 
 [dev-dependencies]
 serde_json = "1"

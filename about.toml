@@ -3,8 +3,9 @@
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 ignore-build-dependencies = false
 ignore-dev-dependencies = true
-# Every license in the dependency graph. A crate under anything else fails the
-# build, which is the point: it would also be a GPLv3 compatibility question.
+# The licenses a dependency may arrive under. All are GPLv3-compatible; a crate
+# under anything else fails the build, which is the point -- it would also be a
+# GPLv3 compatibility question.
 accepted = [
     "MIT",
     "Apache-2.0",
@@ -20,7 +21,6 @@ accepted = [
     "MIT-0",
     "Unicode-3.0",
     "Unicode-DFS-2016",
-    "OpenSSL",
 ]
 
 # tauri-greeter itself is GPL-3.0-or-later and does not belong in a third-party list;

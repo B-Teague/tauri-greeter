@@ -27,27 +27,6 @@ post_install() {
 }
 
 post_upgrade() {
-	# Coming across the 0.1.x rename: cssdm was a display manager with its own
-	# unit, and removing it disabled that unit. Until lightdm is enabled in its
-	# place there is no display manager at all, and the next boot lands on a
-	# console. Say so before that happens rather than after.
-	if [ "$(vercmp "$2" 0.2.0)" -lt 0 ]; then
-		cat <<-'EOF'
-
-		  tauri-greeter 0.2.0 is no longer a display manager. LightDM is, and this
-		  is the greeter it draws. The cssdm service is gone; enable LightDM and
-		  point it here, or the next boot has no login screen:
-
-		      printf '[Seat:*]\ngreeter-session=tauri-greeter\n' |
-		          sudo install -Dm644 /dev/stdin /etc/lightdm/lightdm.conf.d/50-tauri-greeter.conf
-		      sudo systemctl enable lightdm
-
-		  Check before rebooting:  systemctl is-enabled display-manager.service
-
-		EOF
-		return
-	fi
-
 	if grep -rqs '^greeter-session=tauri-greeter' /etc/lightdm/; then
 		echo "  tauri-greeter: the new binary is used at the next greeter start."
 		echo "         Restarting lightdm now would end the session you are sitting in."

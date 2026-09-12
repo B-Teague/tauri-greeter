@@ -1,9 +1,10 @@
 /* Copyright (C) 2026 Brian Teague
    SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* Tauri Greeter — default theme.
+/* dusk — the default Tauri Greeter theme, built into the binary.
  * Everything themeable lives in the custom properties below; drop an override
- * file at /etc/tauri-greeter/theme.css to restyle the greeter without a rebuild. */
+ * file at /etc/tauri-greeter/theme.css to restyle the greeter without a rebuild.
+ * A picture at /etc/tauri-greeter/theme.{png,jpg,webp} becomes --backdrop. */
 
 :root {
   --backdrop: linear-gradient(160deg, #6c3b7a 0%, #8b4a6b 45%, #c86b4a 75%, #e0894f 100%);
@@ -98,6 +99,14 @@ body {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
+/* The same box when LightDM has a real picture for the account instead of the
+   drawn fallback. Cropped rather than squashed: nobody chose the aspect ratio
+   of the file in ~/.face. */
+img.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .avatar .head,
 .avatar .body {
   fill: #4a4a4a;
@@ -119,6 +128,19 @@ body {
 
 .user option {
   color: var(--field-fg);
+}
+
+/* Manual login: the same slot as the picker, but something you can type into,
+   so it needs a visible edge the <select> does not. */
+.user.manual {
+  width: var(--field-width);
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid var(--fg-muted);
+  text-align: center;
+}
+
+.user.manual::placeholder {
+  color: var(--fg-muted);
 }
 
 /* Password */
@@ -172,11 +194,31 @@ body {
   opacity: 0.6;
 }
 
+/* Everything the greeter has to say, in one place: the rejection, whatever
+   PAM said on the way there, and the autologin countdown. A stack, because an
+   expired-password login produces several lines at once. */
 .error {
   grid-area: error;
   min-height: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: min(32rem, 90vw);
   color: var(--error);
   font-size: 0.85rem;
+  text-align: center;
+}
+
+/* PAM's own words. Informational by default -- "your password expires in 3
+   days" is not a failure -- and only red when PAM said it was an error. */
+.message,
+.countdown {
+  color: var(--fg-muted);
+}
+
+.message.failed {
+  color: var(--error);
 }
 
 /* Power actions */
@@ -219,12 +261,18 @@ body {
 
 /* Status bar */
 
+.host {
+  font-weight: 600;
+}
+
 .status {
   grid-area: status;
   align-self: end;
   justify-self: start;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  max-width: 100%;
   padding: 0.25rem 0.6rem;
   background: var(--bar-bg);
   font-size: 0.7rem;

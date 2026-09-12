@@ -42,10 +42,13 @@ EOF
 
 echo "config:  $dir/lightdm.conf"
 echo "logs:    $dir/log"
-echo "Close the Xephyr window or press Ctrl-C to stop."
+echo "Press Ctrl-C here to stop. Closing the Xephyr window will not: bringing a"
+echo "dead seat back up is what a display manager does, so LightDM respawns it."
 echo
 
-exec lightdm --test-mode --debug \
+# Not `exec`: that would replace this shell and take the cleanup trap with it,
+# leaving the temp directory behind on every run.
+lightdm --test-mode --debug \
 	--config "$dir/lightdm.conf" \
 	--run-dir "$dir/run" \
 	--log-dir "$dir/log" \

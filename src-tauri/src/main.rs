@@ -17,7 +17,6 @@ fn main() {
         return;
     }
 
-    // LightDM starts this on the X display it owns, as the `lightdm` user. It
-    // is the greeter and nothing else: there is no daemon half any more.
+    // LightDM starts this on the X display it owns, as the `lightdm` user.
     tauri_greeter_lib::run()
 }

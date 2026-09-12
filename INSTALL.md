@@ -17,8 +17,7 @@ it first in a nested X server, with the real seat untouched.
 - Standard build tools: `gcc`, `make`, `pkg-config`
 - GTK and webkit2gtk development libraries
 
-There is no PAM dependency any more, and no X server dependency: LightDM
-already requires both.
+No PAM and no X server dependency of its own: LightDM already requires both.
 
 ### Install Build Dependencies
 
@@ -104,8 +103,31 @@ no root. Everything it writes goes to one temporary directory that is deleted on
 exit; the system's `/etc/lightdm` and `/run/lightdm` are never involved. Close
 the window to stop it.
 
-Needs `xorg-server-xephyr`. See [LOCAL_TESTING.md](LOCAL_TESTING.md) for what to
-check and how to read the logs.
+Needs `xorg-server-xephyr`. `SCREEN=1920x1080 make test-mode` sets the window
+size. **Stop it with Ctrl-C in the terminal** — closing the Xephyr window only
+kills that seat's X server, and LightDM restarts a dead seat, which is its job.
+The script prints the temporary directory it is using; while it runs:
+
+```bash
+tail -f /tmp/tauri-greeter-test.*/log/lightdm.log   # LightDM and the greeter's stderr
+tail -f /tmp/tauri-greeter-test.*/log/x-0.log       # Xephyr
+```
+
+Check that a wrong password says `Authentication failed.` and nothing the
+greeter itself made more specific, that the field clears and a second attempt
+works, that a correct one is accepted, and that no password appears in the log.
+Test mode has no privileges, so what happens *after* authentication is not
+representative — LightDM cannot setuid, so the session it then tries to start
+may fail. Repeated testing trips `pam_faillock`; `faillock --user "$USER"
+--reset` clears it.
+
+The rest of the conversation is worth exercising here too, since this is the
+only place it can be without risking the real seat: switch account mid-prompt
+and check the next attempt starts clean, change the keyboard layout and check
+the password field types on the new one, and press Escape mid-prompt to confirm
+it drops back to a fresh prompt. To see a multi-prompt stack without touching
+`/etc/pam.d`, `chage -d 0 "$USER"` expires the password and makes the next login
+ask for a new one; `chage -d -1 "$USER"` puts it back.
 
 ### 4. Select It
 
@@ -218,8 +240,11 @@ sudo journalctl -u lightdm -b | grep -i pam
 faillock --user "$USER"     # locked out by earlier failures?
 ```
 
-A stack that asks more than one question cannot complete here — see the
-single-prompt limitation in [README.md](README.md#limitations).
+A stack that asks more than one question is answered one question at a time:
+each prompt appears in turn and PAM's own messages appear under it. If a prompt
+never arrives, the greeter gives the keyboard back after 120s and says `Login is
+unavailable.` — that is LightDM not replying, not a rejected password. Escape
+abandons the conversation and starts a fresh one.
 
 ### No Users, or Too Many
 
@@ -292,6 +317,5 @@ no service of ours to disable and no system file of ours to restore.
 
 ## Next Steps
 
-- [LOCAL_TESTING.md](LOCAL_TESTING.md) — the nested-LightDM harness in detail
 - [SECURITY.md](SECURITY.md) — the trust boundary
 - [themes/README.md](themes/README.md) — writing a theme
