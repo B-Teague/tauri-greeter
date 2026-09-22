@@ -258,6 +258,50 @@ fn theme_css(name: String) -> String {
     backdrop(Path::new(&path)) + &css
 }
 
+/// A window covering each monitor that is not `primary`. They load the same
+/// page as the login screen; the label is what tells the UI to draw only the
+/// theme's background there.
+fn backdrops(app: &tauri::App, primary: &tauri::Monitor) {
+    let Ok(monitors) = app.available_monitors() else {
+        return;
+    };
+    for (index, monitor) in monitors
+        .iter()
+        .filter(|monitor| monitor.position() != primary.position())
+        .enumerate()
+    {
+        let built = tauri::WebviewWindowBuilder::new(
+            app,
+            format!("backdrop-{index}"),
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        // Named apart from the login screen's window so a journal or an
+        // `xwininfo` says which is which.
+        .title("tauri-greeter backdrop")
+        .decorations(false)
+        // The keyboard belongs to the login screen; nothing here is typed into.
+        .focused(false)
+        .skip_taskbar(true)
+        .build();
+        match built {
+            Ok(backdrop) => {
+                let _ = backdrop.set_position(*monitor.position());
+                let _ = backdrop.set_size(*monitor.size());
+                // Where each window went is the only way to tell a misplaced
+                // backdrop from a monitor X never reported, after the fact.
+                eprintln!(
+                    "tauri-greeter: backdrop on {} at {:?}",
+                    monitor.name().map_or("?", |name| name.as_str()),
+                    monitor.position()
+                );
+            }
+            // One monitor left showing whatever X had on it is a cosmetic fault;
+            // the login screen itself is already up.
+            Err(error) => eprintln!("tauri-greeter: backdrop window: {error}"),
+        }
+    }
+}
+
 pub fn run() {
     // WebKitGTK renders through a DMABUF buffer it allocates with GBM. On the
     // bare Xorg LightDM starts for its greeter -- no compositor, and whatever
@@ -290,10 +334,28 @@ pub fn run() {
                     // No window manager runs on the greeter's display, so there is
                     // nobody to honour a fullscreen request or to hand out focus:
                     // cover the screen by hand and take the keyboard directly.
-                    if let Ok(Some(monitor)) = window.current_monitor() {
-                        let _ = window.set_position(tauri::PhysicalPosition::new(0, 0));
+                    // The login screen covers the primary monitor only -- which is
+                    // not necessarily the one at (0, 0) -- and every other monitor
+                    // gets a window that draws the theme's background and nothing
+                    // else, so a second screen is part of the backdrop rather than
+                    // a second login form.
+                    let primary = window
+                        .primary_monitor()
+                        .ok()
+                        .flatten()
+                        .or_else(|| window.current_monitor().ok().flatten());
+                    if let Some(monitor) = &primary {
+                        let _ = window.set_position(*monitor.position());
                         let _ = window.set_size(*monitor.size());
+                        eprintln!(
+                            "tauri-greeter: login screen on {} at {:?}",
+                            monitor.name().map_or("?", |name| name.as_str()),
+                            monitor.position()
+                        );
+                        backdrops(app, monitor);
                     }
+                    // Last, so a backdrop that grabbed the keyboard on its way up
+                    // does not keep it.
                     let _ = window.set_focus();
                 }
             }

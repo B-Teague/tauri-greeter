@@ -1,5 +1,8 @@
 # Tauri Greeter — a CSS-themeable LightDM greeter
 
+<img src="Screenshot.png" width="720"
+  alt="The greeter's login screen: clock, account, password field and power actions over the nebula theme">
+
 A LightDM greeter built with Tauri: a Leptos/WASM login screen you restyle with
 one CSS file. LightDM does the display management — the VT, the X server, PAM,
 privilege dropping, starting the desktop — and this draws the login screen it
@@ -36,6 +39,9 @@ exceptions in [Limitations](#limitations).
   and only the ones logind says it will actually perform are drawn
 - **Keyboard-first** — the prompt is focused on start, Enter submits, Escape
   abandons a stuck conversation and starts a fresh one
+- **Multi-monitor** — the login screen covers the primary monitor; every other
+  monitor gets the theme's background and nothing else, and follows the theme
+  picker with it
 
 ## Architecture
 

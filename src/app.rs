@@ -46,6 +46,24 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "event"], catch)]
     async fn listen(event: &str, handler: &JsValue) -> Result<JsValue, JsValue>;
+
+    /// Delivered to every window, which is the point: the backdrop windows on
+    /// the other monitors follow the login screen's theme picker this way.
+    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "event"], catch)]
+    async fn emit(event: &str, payload: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "window"], js_name = getCurrentWindow, catch)]
+    fn current_window() -> Result<JsValue, JsValue>;
+}
+
+/// True in the windows the backend opens on the non-primary monitors. They load
+/// this same page, and draw the theme's background and nothing else.
+pub fn is_backdrop() -> bool {
+    current_window()
+        .ok()
+        .and_then(|window| js_sys::Reflect::get(&window, &"label".into()).ok())
+        .and_then(|label| label.as_string())
+        .is_some_and(|label| label.starts_with("backdrop"))
 }
 
 /// Calls a Tauri command, flattening JS and command errors into one message.
@@ -457,6 +475,9 @@ pub fn App() -> impl IntoView {
             return;
         }
         spawn_local(async move {
+            // The other monitors are showing the same background; they fetch
+            // the stylesheet themselves rather than have it copied over IPC.
+            let _ = emit("theme", JsValue::from_str(&name)).await;
             match call::<String>("theme_css", Named { name }).await {
                 // An unreadable stylesheet leaves the built-in one in place.
                 Ok(css) => theme.set(css),
@@ -807,6 +828,50 @@ fn prefer(
         .or_else(|| sessions.first().map(|session| session.key.clone()));
     if let Some(chosen) = chosen {
         session.set(chosen);
+    }
+}
+
+/// The window on a monitor that is not the primary one: the theme's stylesheets
+/// over an empty page, so the background matches the login screen's without a
+/// second login screen on it. The same starting theme the login screen picks,
+/// then whatever its picker moves to.
+#[component]
+pub fn Backdrop() -> impl IntoView {
+    let theme = RwSignal::new(String::new());
+    let operator_theme = RwSignal::new(String::new());
+
+    let load = move |name: String| {
+        spawn_local(async move {
+            match call::<String>("theme_css", Named { name }).await {
+                Ok(css) => theme.set(css),
+                Err(message) => logged("theme_css", message),
+            }
+        });
+    };
+
+    // Not the `theme` event: the login screen emits that before this window has
+    // finished subscribing, so the first theme is fetched rather than waited on.
+    spawn_local(async move {
+        match call::<Vec<String>>("themes", ()).await {
+            Ok(names) if names.iter().any(|name| name == DEFAULT_THEME) => {
+                load(DEFAULT_THEME.to_string());
+            }
+            Ok(_) => {}
+            Err(message) => logged("themes", message),
+        }
+    });
+    spawn_local(async move {
+        let name = String::new();
+        match call::<String>("theme_css", Named { name }).await {
+            Ok(css) => operator_theme.set(css),
+            Err(message) => logged("theme_css", message),
+        }
+    });
+    on::<String>("theme", move |name| load(name));
+
+    view! {
+        <style>{move || theme.get()}</style>
+        <style>{move || operator_theme.get()}</style>
     }
 }
 

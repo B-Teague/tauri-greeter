@@ -150,3 +150,7 @@ Each power button carries its own `aria-label`, so hiding the visible
   belongs beside the stylesheet, where the greeter inlines it for you.
 - A theme is appended after the built-in stylesheet at equal specificity, so a
   plain selector wins. `!important` is never needed.
+- On a second monitor the greeter draws an empty page wearing the same
+  stylesheet: `<body>` and whatever it paints, with no `.screen` inside it. Put
+  the background on `body`, as every theme here does, and it fills the other
+  monitors too; a background painted on `.screen` stays on the login screen.
